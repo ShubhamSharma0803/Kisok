@@ -9,3 +9,7 @@ class SessionStatus(str, enum.Enum):
     active = "active"
     handed_off = "handed_off"
     completed = "completed"
+
+class HandoffReason(str, enum.Enum):
+    manual = "manual"
+    automatic = "automatic"

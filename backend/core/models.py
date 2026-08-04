@@ -4,6 +4,7 @@ from sqlalchemy import Column, String, DateTime, Integer, Float, ForeignKey ,Enu
 from sqlalchemy.orm import relationship
 from core.database import Base
 from core.enums import SessionMode, SessionStatus
+from core.enums import HandoffReason
 
 def utcnow():
     return datetime.now(timezone.utc)
@@ -48,3 +49,13 @@ class OrderItem(Base):
     modifiers = Column(String, nullable=True)    # e.g. "oat milk, extra shot" — plain string for now
 
     order = relationship("Order", back_populates="items")
+
+
+class HandoffLog(Base):
+    __tablename__ = "handoff_logs"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String, ForeignKey("sessions.id"), nullable=False)
+    reason = Column(SQLEnum(HandoffReason), nullable=False)
+    detail = Column(String, nullable=True)   # e.g. "idle_timeout", "failed_tap_threshold"
+    created_at = Column(DateTime, default=utcnow)
