@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, Enum as SQLEnum
+from sqlalchemy import Column, String, DateTime, Integer, Float, ForeignKey ,Enum as SQLEnum
+from sqlalchemy.orm import relationship
 from core.database import Base
 from core.enums import SessionMode, SessionStatus
 
@@ -15,3 +16,35 @@ class Session(Base):
     current_mode = Column(SQLEnum(SessionMode), default=SessionMode.voice_first, nullable=False)
     created_at = Column(DateTime, default=utcnow)
     last_active_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class MenuItem(Base):
+    __tablename__ = "menu_items"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    price = Column(Float, nullable=False)
+    category = Column(String, nullable=True)
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    session_id = Column(String, ForeignKey("sessions.id"), nullable=False, unique=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    order_id = Column(String, ForeignKey("orders.id"), nullable=False)
+    menu_item_id = Column(String, ForeignKey("menu_items.id"), nullable=False)
+    item_name = Column(String, nullable=False)   # snapshot, see note below
+    unit_price = Column(Float, nullable=False)   # snapshot, see note below
+    quantity = Column(Integer, nullable=False, default=1)
+    modifiers = Column(String, nullable=True)    # e.g. "oat milk, extra shot" — plain string for now
+
+    order = relationship("Order", back_populates="items")

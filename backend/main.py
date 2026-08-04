@@ -3,6 +3,8 @@ from core.config import settings
 from core.database import Base, engine
 from core.router import router as sessions_router
 from core.ws_router import router as ws_router
+from orders.router import router as orders_router
+
 
 
 Base.metadata.create_all(bind=engine)
@@ -10,6 +12,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Kiosk Vision AI Backend")
 app.include_router(sessions_router)
 app.include_router(ws_router)
+app.include_router(orders_router)
 
 @app.get("/health")
 def health():
