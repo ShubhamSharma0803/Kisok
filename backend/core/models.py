@@ -24,8 +24,10 @@ class MenuItem(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, nullable=False)
+    name_hi = Column(String, nullable=True)          # Hindi name for voice ordering
     price = Column(Float, nullable=False)
     category = Column(String, nullable=True)
+    available_modifiers = Column(String, nullable=True)  # comma-separated modifier options
 
 class Order(Base):
     __tablename__ = "orders"

@@ -1,0 +1,15 @@
+{
+  "items": [
+    {"id": "veg_burger", "name": "Veg Burger", "name_hi": "वेज बर्गर", "price": 99, "modifiers": ["extra cheese", "no onion"]},
+    {"id": "paneer_wrap", "name": "Paneer Wrap", "name_hi": "पनीर रैप", "price": 129, "modifiers": ["spicy", "mild"]},
+    {"id": "masala_fries", "name": "Masala Fries", "name_hi": "मसाला फ्राइज़", "price": 79, "modifiers": ["extra masala"]},
+    {"id": "cold_coffee", "name": "Cold Coffee", "name_hi": "कोल्ड कॉफ़ी", "price": 89, "modifiers": ["less sugar", "no sugar"]},
+    {"id": "samosa", "name": "Samosa", "name_hi": "समोसा", "price": 25, "modifiers": []},
+    {"id": "masala_chai", "name": "Masala Chai", "name_hi": "मसाला चाय", "price": 35, "modifiers": ["extra strong", "less sweet"]},
+    {"id": "veg_thali", "name": "Veg Thali", "name_hi": "वेज थाली", "price": 179, "modifiers": ["extra roti"]},
+    {"id": "gulab_jamun", "name": "Gulab Jamun (2 pc)", "name_hi": "गुलाब जामुन", "price": 49, "modifiers": []},
+    {"id": "latte", "name": "Latte", "name_hi": "लट्टे", "price": 150, "modifiers": ["oat milk", "extra shot"]},
+    {"id": "espresso", "name": "Espresso", "name_hi": "एस्प्रेसो", "price": 100, "modifiers": ["double shot"]},
+    {"id": "blueberry_muffin", "name": "Blueberry Muffin", "name_hi": "ब्लूबेरी मफ़िन", "price": 120, "modifiers": []}
+  ]
+}

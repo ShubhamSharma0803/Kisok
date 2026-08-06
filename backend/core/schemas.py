@@ -16,8 +16,10 @@ class SessionResponse(BaseModel):
 class MenuItemResponse(BaseModel):
     id: str
     name: str
+    name_hi: Optional[str] = None
     price: float
     category: Optional[str] = None
+    available_modifiers: Optional[str] = None
 
     class Config:
         from_attributes = True
