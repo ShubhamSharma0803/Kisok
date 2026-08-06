@@ -16,11 +16,10 @@ app.include_router(ws_router)
 app.include_router(orders_router)
 app.include_router(handoff_router)
 
+
 @app.get("/health")
 def health():
     return {"status": "ok", "environment": settings.environment}
-
-
 
 @app.get("/")
 def fun():
