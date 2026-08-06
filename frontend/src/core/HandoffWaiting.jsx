@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSession } from './SessionContext';
 import { useSessionSocket } from './useSessionSocket';
-import { getOrchestratorState } from './api';
+import { getOrchestratorState, resolveHandoff } from './api';
 import { UserCheck, ShieldCheck, ArrowLeft, RefreshCw, HelpCircle, Clock, CheckCircle } from 'lucide-react';
 
 export default function HandoffWaiting({ onResumeOrdering }) {
@@ -71,6 +71,19 @@ export default function HandoffWaiting({ onResumeOrdering }) {
     };
   }, [sessionId, subscribe, setSessionMode]);
 
+  const handleSimulateResolve = async () => {
+    if (!sessionId) return;
+    setIsCheckingState(true);
+    try {
+      await resolveHandoff(sessionId);
+      await checkStatus();
+    } catch (err) {
+      console.error('[HandoffWaiting] Failed to resolve handoff:', err);
+    } finally {
+      setIsCheckingState(false);
+    }
+  };
+
   return (
     <main 
       className="min-h-screen bg-slate-950 text-slate-50 flex flex-col justify-between p-6 md:p-12 font-sans"
@@ -125,6 +138,18 @@ export default function HandoffWaiting({ onResumeOrdering }) {
               >
                 <ArrowLeft className="w-6 h-6 stroke-[3]" />
                 <span>Return to Order</span>
+              </button>
+            )}
+
+            {!isActiveConfirmed && (
+              <button
+                type="button"
+                onClick={handleSimulateResolve}
+                disabled={isCheckingState}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-6 min-h-touch text-lg font-bold bg-amber-700 hover:bg-amber-600 text-white rounded-2xl border border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-400 disabled:opacity-50 min-h-touch shadow-md"
+              >
+                <UserCheck className="w-5 h-5" />
+                <span>Simulate Attendant Resolution (Dev)</span>
               </button>
             )}
 

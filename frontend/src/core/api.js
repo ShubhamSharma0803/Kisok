@@ -170,6 +170,12 @@ export async function triggerHandoff(sessionId) {
   });
 }
 
+export async function resolveHandoff(sessionId) {
+  return request(`/sessions/${sessionId}/resolve-handoff`, {
+    method: 'POST',
+  });
+}
+
 /**
  * Voice Module API Endpoints
  */
@@ -179,16 +185,33 @@ export async function sendVoiceAudio(sessionId, audioBlob) {
   const formData = new FormData();
   formData.append('audio', audioBlob, 'recording.wav');
 
+  // 15-second timeout — the real STT→LLM→TTS pipeline can take up to ~10s;
+  // this gives comfortable headroom while still failing on truly hung requests.
+  const VOICE_TIMEOUT_MS = 15000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), VOICE_TIMEOUT_MS);
+
   try {
     const response = await fetch(url, {
       method: 'POST',
       body: formData,
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId); // success path — cancel the timeout
     if (!response.ok) {
       throw new ApiError('Voice processing failed', response.status);
     }
     return await response.json();
   } catch (error) {
+    clearTimeout(timeoutId); // error path — cancel the timeout so it can't fire stale
+
+    if (error.name === 'AbortError') {
+      await safeReportFriction(sessionId);
+      throw new ApiError(
+        'Voice processing took too long. Please try a shorter phrase or check your connection.',
+        0
+      );
+    }
     await safeReportFriction(sessionId);
     throw new ApiError('Voice service currently unavailable. Please try again.', 0);
   }

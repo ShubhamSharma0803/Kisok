@@ -18,13 +18,14 @@ transcript and turn it into a structured order action the backend/UI can act on.
 import os
 import json
 from groq import Groq
+from core.config import settings
 
 _client = None
 
 def _get_client():
     global _client
     if _client is None:
-        _client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+        _client = Groq(api_key=settings.groq_api_key)
     return _client
 
 SYSTEM_PROMPT = """You are the order-parsing brain for an accessible voice kiosk.

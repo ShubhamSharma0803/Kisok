@@ -48,3 +48,31 @@ async def trigger_handoff(session_id: str, db: DBSession = Depends(get_db)):
         {"reason": "manual", "detail": "user_requested"},
     )
     return {"handed_off": True}
+
+@router.post("/sessions/{session_id}/resolve-handoff")
+async def resolve_handoff(session_id: str, db: DBSession = Depends(get_db)):
+    session = _get_session_or_404(db, session_id)
+
+    if session.status != SessionStatus.handed_off:
+        raise HTTPException(status_code=400, detail="Session is not currently handed off")
+
+    session.status = SessionStatus.active
+    db.commit()
+    db.refresh(session)
+
+    from core.orchestrator import _failed_tap_counts
+    _failed_tap_counts[session_id] = 0
+
+    await manager.send_event(
+        session_id,
+        EventType.mode_change,
+        {"mode": session.current_mode, "status": session.status},
+    )
+
+    return {
+        "id": session.id,
+        "status": session.status,
+        "current_mode": session.current_mode,
+        "failed_tap_count": 0,
+        "idle_seconds": get_idle_seconds(session),
+    }

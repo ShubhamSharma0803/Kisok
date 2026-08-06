@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { createSession } from './api';
 
 const SessionContext = createContext(null);
@@ -10,10 +10,19 @@ export const SessionProvider = ({ children }) => {
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [sessionError, setSessionError] = useState(null);
 
+  // Guard ref: prevents duplicate POST /sessions when React StrictMode
+  // double-invokes effects before the first async call resolves.
+  const hasInitializedRef = useRef(false);
+
   /**
-   * Initializes a new session by calling POST /sessions
+   * Initializes a new session by calling POST /sessions.
+   * The ref guard is set synchronously before the async call starts,
+   * so a second invocation within the same mount cycle is a no-op.
    */
   const initSession = useCallback(async () => {
+    if (hasInitializedRef.current) return null;
+    hasInitializedRef.current = true; // set synchronously — before await
+
     setIsLoadingSession(true);
     setSessionError(null);
     try {
@@ -27,6 +36,7 @@ export const SessionProvider = ({ children }) => {
       console.error('[SessionContext] Failed to create session:', err);
       setSessionError('Unable to connect to kiosk server. Please check network connection and try again.');
       setIsLoadingSession(false);
+      hasInitializedRef.current = false; // allow retry on failure
       return null;
     }
   }, []);
@@ -46,6 +56,7 @@ export const SessionProvider = ({ children }) => {
     setSessionMode('voice_first');
     setSessionStatus('active');
     setSessionError(null);
+    hasInitializedRef.current = false;
   }, []);
 
   const value = {

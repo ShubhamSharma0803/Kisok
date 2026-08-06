@@ -55,7 +55,7 @@ const CATEGORY_ICONS = {
 
 export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
   const navigate = useNavigate();
-  const { sessionId } = useSession();
+  const { sessionId, initSession } = useSession();
   const { reportFailedTap } = useHandoff();
   const { subscribe } = useSessionSocket(sessionId);
 
@@ -86,23 +86,29 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
 
   // 1. Initial Data Fetching (Menu + Order)
   const fetchData = useCallback(async () => {
-    if (!sessionId) return;
     setIsLoading(true);
     setError(null);
     try {
-      const [menuData, orderData] = await Promise.all([
-        getMenu(),
-        getOrder(sessionId),
-      ]);
+      let currentSessionId = sessionId;
+      if (!currentSessionId) {
+        const newSession = await initSession();
+        currentSessionId = newSession?.id;
+      }
+
+      const menuData = await getMenu();
       setMenu(menuData);
-      setOrder(orderData);
+
+      if (currentSessionId) {
+        const orderData = await getOrder(currentSessionId);
+        setOrder(orderData);
+      }
       setIsLoading(false);
     } catch (err) {
       console.error('[OrdersScreen] Failed to load menu or order:', err);
       setError('Unable to load menu right now. Please check server connection.');
       setIsLoading(false);
     }
-  }, [sessionId]);
+  }, [sessionId, initSession]);
 
   useEffect(() => {
     fetchData();

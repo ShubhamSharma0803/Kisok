@@ -40,6 +40,10 @@ export default function VoiceScreen() {
   const silenceTimerRef = useRef(null);
   const maxRecordTimerRef = useRef(null);
 
+  // Monotonically increasing counter: every new voice interaction increments this.
+  // Used to discard stale WebSocket caption events from a previous interaction.
+  const interactionIdRef = useRef(0);
+
   // 1. Initial cart fetch
   useEffect(() => {
     if (!sessionId) return;
@@ -57,6 +61,13 @@ export default function VoiceScreen() {
     });
 
     const unsubCaption = subscribe('caption', (payload) => {
+      // Guard: only accept caption events that match the current interaction.
+      // If the backend ever starts emitting caption events, a stale event from
+      // interaction N arriving during interaction N+1 will be silently dropped.
+      const eventInteraction = payload?._interaction_id;
+      if (eventInteraction !== undefined && eventInteraction !== interactionIdRef.current) {
+        return; // stale event — discard
+      }
       if (payload?.text || payload?.caption) {
         setLatestCaption(payload.text || payload.caption);
       }
@@ -105,7 +116,14 @@ export default function VoiceScreen() {
   // Helper: Send captured audio blob to FastAPI voice backend
   const processAudioBlob = useCallback(async (blob) => {
     if (!sessionId) return;
+
+    // --- Clear stale state IMMEDIATELY before the async call ---
+    // This ensures leftover error text from a previous failed attempt
+    // is never visible while the new request is in flight.
+    interactionIdRef.current += 1;
     setVoiceState('processing');
+    setLatestCaption('Processing your voice...');
+    setTranscript('');
 
     try {
       const response = await sendVoiceAudio(sessionId, blob);
@@ -113,9 +131,9 @@ export default function VoiceScreen() {
       if (response.transcript) {
         setTranscript(response.transcript);
       }
-      if (response.message) {
-        setLatestCaption(response.message);
-      }
+      // Always update caption: use response message, or fall back to a
+      // generic success message so the caption is never left stale.
+      setLatestCaption(response.message || 'Done! Say your next item or "read my order".');
       if (response.order) {
         setOrder(response.order);
       }

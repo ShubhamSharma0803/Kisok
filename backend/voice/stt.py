@@ -21,7 +21,9 @@ import time
 import mimetypes
 import requests
 
-GLADIA_API_KEY = os.environ.get("GLADIA_API_KEY")
+from core.config import settings
+
+GLADIA_API_KEY = settings.gladia_api_key
 BASE_URL = "https://api.gladia.io/v2"
 
 
