@@ -1,0 +1,95 @@
+
+--- Page 1 ---
+Kiosk Vision
+An AI-powered accessible kiosk assistant  |  Feature Build Sequence & Team Plan
+Self-service kiosks are widely used in restaurants, retail, and pharmacies, but often fail specially-abled users.
+Kiosk Vision builds an AI-powered assistant that makes these kiosks inclusive through voice, visual, and
+adaptive interaction — while also solving practical bottlenecks like payment handling.
+This document lists the 10 core features in build order, followed by a role-based split across a team of 5.
+Feature Build Sequence
+Features are ordered so that each phase produces a usable, demoable system before moving to the next
+layer of complexity.
+Phase 1 — Core Working Kiosk (Weeks 1–4)
+1. Conversational Voice Ordering (Core)
+Full voice-driven menu navigation and ordering. Speech-to-text captures what the user says, an LLM parses
+the intent into a structured order action, and text-to-speech reads back the order and total before payment.
+This is the backbone feature every visually-impaired user depends on, so it must be built first.
+2. Real-Time Screen Understanding
+A vision-language model interprets whatever is currently on screen and narrates it in plain language, so the
+assistant keeps working even as the menu or UI changes. This is the most technically distinctive feature in
+the project.
+3. Simplified / Adaptive UI Mode
+Detects confusion or low digital familiarity (long idle time, repeated back-and-forth) and switches to a
+step-by-step, icon-first, one-choice-at-a-time layout.
+10. Graceful Human Handoff
+When AI confidence is low or the user is clearly struggling, the system cleanly escalates to a human
+attendant instead of trapping the user in a broken loop. Built early so every other feature has a safety net to
+fall back on.
+Phase 2 — Practical Experience Layer (Weeks 5–8)
+6. Assistive Payment Guidance
+Step-by-step audio and visual guidance through payment (“insert your card now”, “tap now”), reading the
+amount aloud before confirming the charge. The real payment gateway is simulated; the focus is the guided
+user experience.
+
+--- Page 2 ---
+7. Automatic Need Detection
+Detects signs that a user needs help — hesitation, no interaction, repeated failed taps, or optionally a
+cane/wheelchair via computer vision — and proactively offers the right mode. Always paired with a simple
+manual “I need help” override.
+9. Real-Time Captioning Display
+Live captions of everything the kiosk says out loud, plus captions for detected ambient announcements.
+Directly serves hearing-impaired users and reuses the speech pipeline already built in Phase 1.
+Phase 3 — Advanced Differentiators (Weeks 9+, pick 1–2 to go deep on)
+4. AVSR / Lip-Reading-Assisted Voice Recognition
+Uses MediaPipe Face Mesh to track lip movement and fuses it with audio, keeping voice commands reliable
+in noisy environments (busy restaurants, stations, airports).
+5. Gaze Tracking + Dwell Selection
+Webcam-based gaze estimation lets users “click” by staring at a button for 1–2 seconds. Ship with a short
+visible calibration step rather than claiming true zero-calibration.
+8. Multilingual + Accent-Robust Voice
+Support for regional languages and Hindi-English code-mixing, tested specifically against noisy, real-store
+conditions for reliability.
+Note: rPPG-based stress detection and depth-sensor spatial adjustment were considered but intentionally excluded from
+the core plan — the former raises privacy/health-data concerns, the latter requires specialized depth-sensing hardware.
+Both can be mentioned as future scope.
+
+--- Page 3 ---
+Team Split (5 People)
+Roles are grouped by skill area rather than splitting the 10 features evenly, since several features share the
+same underlying pipeline.
+Person 1 — Voice & Conversational AI Lead
+Owns: Feature 1, Feature 8
+ Speech-to-text integration (e.g. Whisper or similar)
+ LLM-based intent parsing (spoken request → structured order action)
+ Text-to-speech responses and order confirmation
+ Regional language and Hindi-English code-mixed support
+Person 2 — Computer Vision Lead
+Owns: Feature 4, Feature 7
+ MediaPipe Face Mesh setup for lip movement tracking
+ Fusing lip movement signal with audio confidence scoring
+ Idle-time / hesitation detection logic
+ Optional: cane / wheelchair detection via object detection
+Person 3 — Screen Understanding & Vision-Language Lead
+Owns: Feature 2, Feature 5
+ Vision-language pipeline to read and describe current screen state
+ Screenshot capture and narration logic
+ Gaze vector estimation and dwell-time click implementation
+ Most research-heavy role — best paired with strong ML interest
+Person 4 — Frontend / UI Lead
+Owns: Feature 3, Kiosk UI shell
+ Build the kiosk interface (React) that every other module plugs into
+ Implement adaptive/simplified UI states (icons, large text, step-by-step flow)
+ Wire up voice, gaze, and CV outputs to trigger real UI actions
+ Acts as the integration hub — coordinates closely with all other roles
+Person 5 — Backend, Payments & Accessibility Output Lead
+Owns: Feature 6, Feature 9, Feature 10
+ Backend API for order state, menu data, and sessions
+ Simulated payment flow with audio confirmation step
+ Live captioning system, syncing STT output to an on-screen display
+ Confidence-threshold logic for escalating to human help
+
+--- Page 4 ---
+Coordination tip: Person 4 (Frontend) is the integration hub — voice, CV, screen understanding, and
+backend all feed into or read from the kiosk UI. Get Person 4 and Person 5 building the basic kiosk and
+backend skeleton in Week 1 so Persons 1, 2, and 3 have a real system to plug their AI modules into rather
+than working in isolation.

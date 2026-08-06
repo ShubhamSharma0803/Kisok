@@ -20,6 +20,7 @@ class MenuItemResponse(BaseModel):
     price: float
     category: Optional[str] = None
     available_modifiers: Optional[str] = None
+    image_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -48,3 +49,6 @@ class AddItemRequest(BaseModel):
     menu_item_id: str
     quantity: int = 1
     modifiers: Optional[str] = None
+
+class UpdateItemQuantityRequest(BaseModel):
+    quantity: int

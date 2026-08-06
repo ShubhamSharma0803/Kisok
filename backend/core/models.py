@@ -28,6 +28,7 @@ class MenuItem(Base):
     price = Column(Float, nullable=False)
     category = Column(String, nullable=True)
     available_modifiers = Column(String, nullable=True)  # comma-separated modifier options
+    image_url = Column(String, nullable=True)            # food image URL
 
 class Order(Base):
     __tablename__ = "orders"
