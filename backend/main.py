@@ -6,9 +6,7 @@ from core.router import router as sessions_router
 from core.ws_router import router as ws_router
 from orders.router import router as orders_router
 from core.handoff_router import router as handoff_router
-from voice.router import router as voice_router
-
-
+from voice.router import router as voice_router, narrate_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -28,6 +26,7 @@ app.include_router(ws_router)
 app.include_router(orders_router)
 app.include_router(handoff_router)
 app.include_router(voice_router)
+app.include_router(narrate_router)
 
 @app.get("/health")
 def health():

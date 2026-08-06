@@ -3,6 +3,7 @@ import { useSession } from './SessionContext';
 import { useSessionSocket } from './useSessionSocket';
 import { triggerHandoff, reportFailedTap, getOrchestratorState } from './api';
 import HandoffWaiting from './HandoffWaiting';
+import ScreenNarrationBridge from './ScreenNarrationBridge';
 import { HelpCircle, LifeBuoy, AlertTriangle } from 'lucide-react';
 
 const HandoffContext = createContext(null);
@@ -114,6 +115,7 @@ export const HandoffProvider = ({ children }) => {
 
   return (
     <HandoffContext.Provider value={value}>
+      <ScreenNarrationBridge />
       {/* If Handed Off, render the HandoffWaiting screen globally */}
       {isHandedOff ? (
         <HandoffWaiting onResumeOrdering={resumeOrdering} />

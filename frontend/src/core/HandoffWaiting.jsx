@@ -1,17 +1,24 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSession } from './SessionContext';
 import { useSessionSocket } from './useSessionSocket';
-import { getOrchestratorState, resolveHandoff } from './api';
+import { getOrchestratorState, resolveHandoff, triggerScreenNarration } from './api';
 import { UserCheck, ShieldCheck, ArrowLeft, RefreshCw, HelpCircle, Clock, CheckCircle } from 'lucide-react';
 
 export default function HandoffWaiting({ onResumeOrdering }) {
-  const { sessionId, setSessionMode } = useSession();
+  const { sessionId, sessionMode, setSessionMode } = useSession();
   const { subscribe } = useSessionSocket(sessionId);
 
   const [statusMessage, setStatusMessage] = useState('Notifying a team member for assistance...');
   const [orchestratorState, setOrchestratorState] = useState(null);
   const [isCheckingState, setIsCheckingState] = useState(false);
   const [isActiveConfirmed, setIsActiveConfirmed] = useState(false);
+
+  // Automatic screen narration on load in voice_first mode
+  useEffect(() => {
+    if (sessionId && sessionMode === 'voice_first') {
+      triggerScreenNarration(sessionId, 'handoff');
+    }
+  }, [sessionId, sessionMode]);
 
   // Poll orchestrator state every 5 seconds to check if status transitions back to active
   const checkStatus = useCallback(async () => {

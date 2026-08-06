@@ -33,11 +33,10 @@ def get_orchestrator_state(session_id: str, db: DBSession = Depends(get_db)):
         "status": session.status,
     }
 
-@router.post("/sessions/{session_id}/handoff")
-async def trigger_handoff(session_id: str, db: DBSession = Depends(get_db)):
+async def perform_handoff(db: DBSession, session_id: str, reason: HandoffReason = HandoffReason.manual, detail: str = "user_requested"):
     session = _get_session_or_404(db, session_id)
 
-    log = HandoffLog(session_id=session_id, reason=HandoffReason.manual, detail="user_requested")
+    log = HandoffLog(session_id=session_id, reason=reason, detail=detail)
     db.add(log)
     session.status = SessionStatus.handed_off
     db.commit()
@@ -45,9 +44,13 @@ async def trigger_handoff(session_id: str, db: DBSession = Depends(get_db)):
     await manager.send_event(
         session_id,
         EventType.handoff_triggered,
-        {"reason": "manual", "detail": "user_requested"},
+        {"reason": reason.value if hasattr(reason, "value") else str(reason), "detail": detail},
     )
     return {"handed_off": True}
+
+@router.post("/sessions/{session_id}/handoff")
+async def trigger_handoff(session_id: str, db: DBSession = Depends(get_db)):
+    return await perform_handoff(db, session_id, HandoffReason.manual, "user_requested")
 
 @router.post("/sessions/{session_id}/resolve-handoff")
 async def resolve_handoff(session_id: str, db: DBSession = Depends(get_db)):

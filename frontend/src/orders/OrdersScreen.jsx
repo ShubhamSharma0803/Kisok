@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { setNarrationContext } from '../core/screenNarration';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../core/SessionContext';
 import { useHandoff } from '../core/HandoffProvider';
 import { useSessionSocket } from '../core/useSessionSocket';
-import { getMenu, getOrder, addOrderItem, updateOrderItemQuantity, deleteOrderItem } from '../core/api';
+import { getMenu, getOrder, addOrderItem, updateOrderItemQuantity, deleteOrderItem, triggerScreenNarration } from '../core/api';
 import CartSummary from './CartSummary';
 import {
   Coffee,
@@ -55,7 +56,7 @@ const CATEGORY_ICONS = {
 
 export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
   const navigate = useNavigate();
-  const { sessionId, initSession } = useSession();
+  const { sessionId, sessionMode, initSession } = useSession();
   const { reportFailedTap } = useHandoff();
   const { subscribe } = useSessionSocket(sessionId);
 
@@ -66,7 +67,7 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
 
   const handleReview = () => {
     if (onReviewOrder) onReviewOrder();
-    else navigate('/review');
+    else navigate('/order');
   };
 
   const [menu, setMenu] = useState([]);
@@ -139,6 +140,18 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
     if (selectedCategory === 'all') return menu;
     return menu.filter((item) => item.category === selectedCategory);
   }, [menu, selectedCategory]);
+
+  useEffect(() => {
+    setNarrationContext({ category: selectedCategory, count: filteredMenuItems.length });
+  }, [selectedCategory, filteredMenuItems.length]);
+
+  const narratedRef = useRef(false);
+  useEffect(() => {
+    if (sessionId && sessionMode === 'voice_first' && !isLoading && !narratedRef.current) {
+      narratedRef.current = true;
+      triggerScreenNarration(sessionId, 'menu', { category: selectedCategory, count: filteredMenuItems.length });
+    }
+  }, [sessionId, sessionMode, isLoading, selectedCategory, filteredMenuItems.length]);
 
   // Handle Add Item action
   const handleAddItemClick = (item) => {

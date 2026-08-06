@@ -11,3 +11,4 @@ class EventType(str, enum.Enum):
     gaze_event = "gaze_event"
     processing = "processing"
     error = "error"
+    navigate = "navigate"

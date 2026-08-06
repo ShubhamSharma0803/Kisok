@@ -18,10 +18,13 @@ from sqlalchemy.orm import Session as DBSession
 
 from core.database import get_db
 from core.models import Session, Order, OrderItem, MenuItem
+from core.enums import HandoffReason
+from core.handoff_router import perform_handoff
 from core.ws_manager import manager
 from core.events import EventType
 
 from voice import stt, llm, tts
+from voice import pending_actions
 
 router = APIRouter(prefix="/sessions/{session_id}/voice", tags=["voice"])
 
@@ -82,6 +85,86 @@ def _order_response(order: Order) -> dict:
         ],
         "total": total,
     }
+
+
+def _apply_intent(
+    db: DBSession,
+    order: Order,
+    action: str,
+    intent: dict,
+    detected_lang: str,
+) -> str:
+    """Apply a parsed (or pending) intent to the order. Returns spoken reply text."""
+    if action == "add_item":
+        for new_item in intent.get("items", []):
+            menu_item = MENU_LOOKUP.get(new_item["id"])
+            if not menu_item:
+                continue
+            order_item = OrderItem(
+                order_id=order.id,
+                menu_item_id=new_item["id"],
+                item_name=menu_item["name"],
+                unit_price=menu_item["price"],
+                quantity=new_item.get("quantity", 1),
+                modifiers=", ".join(new_item.get("modifiers", [])) or None,
+            )
+            db.add(order_item)
+        db.commit()
+        db.refresh(order)
+        return "Added to your order. Anything else, or shall I read your total?"
+
+    if action == "modify_item":
+        existing_items_map = {item.menu_item_id: item for item in order.items}
+        for mod_item in intent.get("items", []):
+            item_id = mod_item.get("id")
+            if item_id in existing_items_map:
+                order_item = existing_items_map[item_id]
+                if "quantity" in mod_item and mod_item["quantity"] is not None:
+                    order_item.quantity = mod_item["quantity"]
+                if "modifiers" in mod_item and mod_item["modifiers"] is not None:
+                    order_item.modifiers = ", ".join(mod_item["modifiers"]) or None
+            else:
+                menu_item = MENU_LOOKUP.get(item_id)
+                if menu_item:
+                    order_item = OrderItem(
+                        order_id=order.id,
+                        menu_item_id=item_id,
+                        item_name=menu_item["name"],
+                        unit_price=menu_item["price"],
+                        quantity=mod_item.get("quantity", 1),
+                        modifiers=", ".join(mod_item.get("modifiers", [])) or None,
+                    )
+                    db.add(order_item)
+        db.commit()
+        db.refresh(order)
+        return "Updated your order. Anything else?"
+
+    if action == "remove_item":
+        remove_ids = {i["id"] for i in intent.get("items", [])}
+        for order_item in list(order.items):
+            if order_item.menu_item_id in remove_ids:
+                db.delete(order_item)
+        db.commit()
+        db.refresh(order)
+        return "Removed that item. Anything else?"
+
+    if action == "confirm_order":
+        if order.items:
+            cart_for_tts = _cart_from_order(order)
+            summary, _total = tts.build_confirmation_text(
+                cart_for_tts, MENU_LOOKUP, lang=detected_lang
+            )
+            return summary
+        return "Your cart is empty. What would you like to order?"
+
+    if action == "cancel_order":
+        for order_item in list(order.items):
+            db.delete(order_item)
+        db.commit()
+        db.refresh(order)
+        return "Order cancelled. Starting fresh."
+
+    return "Sorry, I didn't understand that."
 
 
 # ---- Endpoints ----
@@ -154,84 +237,114 @@ async def process_voice(
                 "tts_audio_b64": base64.b64encode(tts_audio).decode(),
             }
 
-        # ---- Step 2: LLM intent parsing ----
+        # ---- Step 2: Resolve pending destructive confirmation OR parse new intent ----
         cart_state = _cart_from_order(order)
-        try:
-            intent = llm.parse_order_intent(transcript, MENU, cart_state)
-        except Exception as e:
-            print(f"[voice] LLM failed: {e}")
-            reply = "Sorry, I had trouble understanding that. Could you repeat your order?"
-            tts_audio = tts.speak(reply, lang=detected_lang)
-            import base64
-            return {
-                "status": "llm_error",
-                "transcript": transcript,
-                "message": reply,
-                "tts_audio_b64": base64.b64encode(tts_audio).decode(),
-            }
-
-        # ---- Step 3: Apply the intent to the DB order ----
-        action = intent.get("action", "unclear")
+        intent = None
+        action = "unclear"
         reply = ""
+        skip_tts = False
 
-        if intent.get("needs_clarification") or action == "unclear":
-            reply = intent.get("clarification_question", "Sorry, could you say that again?")
-
-        elif action == "add_item":
-            for new_item in intent.get("items", []):
-                menu_item = MENU_LOOKUP.get(new_item["id"])
-                if not menu_item:
-                    continue
-                order_item = OrderItem(
-                    order_id=order.id,
-                    menu_item_id=new_item["id"],
-                    item_name=menu_item["name"],
-                    unit_price=menu_item["price"],
-                    quantity=new_item.get("quantity", 1),
-                    modifiers=", ".join(new_item.get("modifiers", [])) or None,
-                )
-                db.add(order_item)
-            db.commit()
-            db.refresh(order)
-            reply = "Added to your order. Anything else, or shall I read your total?"
-
-        elif action == "remove_item":
-            remove_ids = {i["id"] for i in intent.get("items", [])}
-            for order_item in list(order.items):
-                if order_item.menu_item_id in remove_ids:
-                    db.delete(order_item)
-            db.commit()
-            db.refresh(order)
-            reply = "Removed that item. Anything else?"
-
-        elif action == "confirm_order":
-            if order.items:
-                cart_for_tts = _cart_from_order(order)
-                summary, total = tts.build_confirmation_text(
-                    cart_for_tts, MENU_LOOKUP, lang=detected_lang
-                )
-                reply = summary
+        pending = pending_actions.get_pending(session_id)
+        if pending:
+            classification = pending_actions.classify_confirmation_response(transcript)
+            if classification == "affirmative":
+                pending_actions.clear_pending(session_id)
+                action = pending["action"]
+                intent = {
+                    "action": action,
+                    "items": pending.get("items", []),
+                    "needs_clarification": False,
+                }
+                reply = _apply_intent(db, order, action, intent, detected_lang)
+            elif classification == "negative":
+                pending_actions.clear_pending(session_id)
+                action = "confirmation_declined"
+                intent = {"action": action, "needs_clarification": False}
+                reply = "Okay, no changes were made to your order. What else would you like?"
             else:
-                reply = "Your cart is empty. What would you like to order?"
+                pending_actions.clear_pending(session_id)
 
-        elif action == "cancel_order":
-            for order_item in list(order.items):
-                db.delete(order_item)
-            db.commit()
-            db.refresh(order)
-            reply = "Order cancelled. Starting fresh."
+        if intent is None:
+            try:
+                intent = llm.parse_order_intent(transcript, MENU, cart_state)
+            except Exception as e:
+                print(f"[voice] LLM failed: {e}")
+                reply = "Sorry, I had trouble understanding that. Could you repeat your order?"
+                tts_audio = tts.speak(reply, lang=detected_lang)
+                import base64
+                return {
+                    "status": "llm_error",
+                    "transcript": transcript,
+                    "message": reply,
+                    "tts_audio_b64": base64.b64encode(tts_audio).decode(),
+                }
 
-        else:
-            reply = "Sorry, I didn't understand that."
+            action = intent.get("action", "unclear")
+
+            if intent.get("needs_clarification") or action == "unclear":
+                if action in ("remove_item", "cancel_order") and intent.get("needs_clarification"):
+                    pending_actions.set_pending(
+                        session_id,
+                        action,
+                        intent.get("items", []),
+                        intent.get("clarification_question", ""),
+                    )
+                reply = intent.get("clarification_question", "Sorry, could you say that again?")
+
+            elif action == "add_item":
+                reply = _apply_intent(db, order, action, intent, detected_lang)
+
+            elif action == "modify_item":
+                reply = _apply_intent(db, order, action, intent, detected_lang)
+
+            elif action == "remove_item":
+                reply = _apply_intent(db, order, action, intent, detected_lang)
+
+            elif action == "confirm_order":
+                reply = _apply_intent(db, order, action, intent, detected_lang)
+
+            elif action == "cancel_order":
+                reply = _apply_intent(db, order, action, intent, detected_lang)
+
+            elif action == "navigate_menu":
+                await manager.send_event(session_id, EventType.navigate, {"target": "menu"})
+                reply = "Sure, taking you to the menu."
+
+            elif action == "navigate_order":
+                await manager.send_event(session_id, EventType.navigate, {"target": "order"})
+                reply = "Here is your current order."
+
+            elif action == "navigate_start":
+                await manager.send_event(session_id, EventType.navigate, {"target": "start"})
+                reply = "Taking you back to the start screen."
+
+            elif action == "request_help":
+                await perform_handoff(db, session_id, HandoffReason.manual, "voice_requested")
+                reply = "I am notifying a team member to assist you right away. Someone will be with you shortly."
+
+            elif action == "repeat_narration":
+                await manager.send_event(
+                    session_id,
+                    EventType.screen_narration,
+                    {"request_repeat": True},
+                )
+                reply = ""
+                skip_tts = True
+
+            else:
+                reply = "Sorry, I didn't understand that."
 
         # Emit order_updated event via WebSocket
         order_data = _order_response(order)
         await manager.send_event(session_id, EventType.order_updated, order_data)
 
         # ---- Step 4: Text-to-speech reply ----
-        tts_audio = tts.speak(reply, lang=detected_lang)
-
         import base64
+        tts_b64 = ""
+        if not skip_tts and reply:
+            tts_audio = tts.speak(reply, lang=detected_lang)
+            tts_b64 = base64.b64encode(tts_audio).decode()
+
         return {
             "status": "ok",
             "transcript": transcript,
@@ -240,7 +353,7 @@ async def process_voice(
             "action": action,
             "message": reply,
             "order": order_data,
-            "tts_audio_b64": base64.b64encode(tts_audio).decode(),
+            "tts_audio_b64": tts_b64,
         }
 
     finally:
@@ -278,3 +391,71 @@ async def reset_voice_order(
     )
 
     return {"status": "reset", "message": "Order cleared."}
+
+
+# ---- Narration Endpoint ----
+
+from pydantic import BaseModel
+
+class NarrationRequest(BaseModel):
+    screen: str
+    context: Optional[dict] = None
+
+narrate_router = APIRouter(prefix="/sessions/{session_id}", tags=["narration"])
+
+@narrate_router.post("/narrate")
+async def narrate_screen(
+    session_id: str,
+    req: NarrationRequest,
+    db: DBSession = Depends(get_db),
+):
+    """
+    Generates a spoken narration for the specified screen state,
+    emits a screen_narration WebSocket event, and returns TTS audio.
+    """
+    _get_session_or_404(db, session_id)
+    screen = req.screen.strip().lower()
+    ctx = req.context or {}
+
+    if screen == "start":
+        text = "Welcome. Say talk to order, tap to order, or look to order, to begin."
+    elif screen == "menu":
+        category = ctx.get("category")
+        count = ctx.get("count")
+        if category and count is not None:
+            text = f"You are viewing the {category} category with {count} items available. Say what you would like to order."
+        elif category:
+            text = f"You are viewing the {category} category on the menu. Say what you would like to order."
+        else:
+            text = "You are on the menu screen. We have Burgers, Beverages, Desserts, and Sides available. Say what you would like to order."
+    elif screen == "order":
+        order = _get_or_create_order(db, session_id)
+        if order.items:
+            cart_for_tts = _cart_from_order(order)
+            summary, total = tts.build_confirmation_text(cart_for_tts, MENU_LOOKUP, lang="en")
+            text = summary
+        else:
+            text = "Your order is currently empty. Head back to the menu to add items."
+    elif screen == "handoff":
+        text = "A team member has been notified and will be at your kiosk shortly to assist you. Your order choices are safely saved."
+    else:
+        text = f"You are currently on the {screen} screen."
+
+    tts_audio = tts.speak(text, lang="en")
+    import base64
+    tts_b64 = base64.b64encode(tts_audio).decode()
+
+    event_payload = {
+        "screen": screen,
+        "text": text,
+        "tts_audio_b64": tts_b64,
+    }
+
+    await manager.send_event(session_id, EventType.screen_narration, event_payload)
+
+    return {
+        "status": "ok",
+        "screen": screen,
+        "text": text,
+        "tts_audio_b64": tts_b64,
+    }

@@ -34,6 +34,14 @@ export default function VoiceScreen() {
   const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
   const [textInputStatus, setTextInputStatus] = useState('');
 
+  const [autoListenEnabled, setAutoListenEnabled] = useState(true);
+  const autoListenRef = useRef(true);
+  const startRecordingRef = useRef(null);
+
+  useEffect(() => {
+    autoListenRef.current = autoListenEnabled;
+  }, [autoListenEnabled]);
+
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const currentAudioRef = useRef(null);
@@ -43,6 +51,21 @@ export default function VoiceScreen() {
   // Monotonically increasing counter: every new voice interaction increments this.
   // Used to discard stale WebSocket caption events from a previous interaction.
   const interactionIdRef = useRef(0);
+
+  // Helper: Resume listening automatically if auto-listen mode is active
+  const resumeListeningIfAuto = useCallback(() => {
+    if (autoListenRef.current && startRecordingRef.current) {
+      setTimeout(() => {
+        if (autoListenRef.current && startRecordingRef.current) {
+          startRecordingRef.current();
+        } else {
+          setVoiceState('idle');
+        }
+      }, 400); // 400ms buffer to prevent mic from picking up TTS audio tail
+    } else {
+      setVoiceState('idle');
+    }
+  }, []);
 
   // 1. Initial cart fetch
   useEffect(() => {
@@ -61,9 +84,6 @@ export default function VoiceScreen() {
     });
 
     const unsubCaption = subscribe('caption', (payload) => {
-      // Guard: only accept caption events that match the current interaction.
-      // If the backend ever starts emitting caption events, a stale event from
-      // interaction N arriving during interaction N+1 will be silently dropped.
       const eventInteraction = payload?._interaction_id;
       if (eventInteraction !== undefined && eventInteraction !== interactionIdRef.current) {
         return; // stale event — discard
@@ -83,17 +103,29 @@ export default function VoiceScreen() {
       }
     });
 
+    const unsubNavigate = subscribe('navigate', (payload) => {
+      if (payload?.target === 'menu' || payload?.target === 'order') {
+        navigate('/order');
+      } else if (payload?.target === 'start') {
+        navigate('/');
+      }
+    });
+
     return () => {
       unsubTranscript();
       unsubCaption();
       unsubOrder();
       unsubProcessing();
+      unsubNavigate();
     };
-  }, [sessionId, subscribe]);
+  }, [sessionId, subscribe, navigate]);
 
   // Helper: Play TTS audio base64 payload
-  const playAudioB64 = (b64Audio) => {
-    if (!b64Audio) return;
+  const playAudioB64 = useCallback((b64Audio) => {
+    if (!b64Audio) {
+      resumeListeningIfAuto();
+      return;
+    }
     try {
       if (currentAudioRef.current) {
         currentAudioRef.current.pause();
@@ -103,23 +135,22 @@ export default function VoiceScreen() {
       currentAudioRef.current = audio;
 
       setVoiceState('speaking');
-      audio.play().catch(() => {});
+      audio.play().catch(() => {
+        resumeListeningIfAuto();
+      });
       audio.onended = () => {
-        setVoiceState('idle');
+        resumeListeningIfAuto();
       };
     } catch (e) {
       console.error('[VoiceScreen] TTS playback error:', e);
-      setVoiceState('idle');
+      resumeListeningIfAuto();
     }
-  };
+  }, [resumeListeningIfAuto]);
 
   // Helper: Send captured audio blob to FastAPI voice backend
   const processAudioBlob = useCallback(async (blob) => {
     if (!sessionId) return;
 
-    // --- Clear stale state IMMEDIATELY before the async call ---
-    // This ensures leftover error text from a previous failed attempt
-    // is never visible while the new request is in flight.
     interactionIdRef.current += 1;
     setVoiceState('processing');
     setLatestCaption('Processing your voice...');
@@ -131,17 +162,18 @@ export default function VoiceScreen() {
       if (response.transcript) {
         setTranscript(response.transcript);
       }
-      // Always update caption: use response message, or fall back to a
-      // generic success message so the caption is never left stale.
       setLatestCaption(response.message || 'Done! Say your next item or "read my order".');
       if (response.order) {
         setOrder(response.order);
       }
 
-      if (response.tts_audio_b64) {
+      if (response.action === 'repeat_narration') {
+        // ScreenNarrationBridge plays narration audio via WebSocket trigger
+        resumeListeningIfAuto();
+      } else if (response.tts_audio_b64) {
         playAudioB64(response.tts_audio_b64);
       } else {
-        setVoiceState('idle');
+        resumeListeningIfAuto();
       }
     } catch (err) {
       console.error('[VoiceScreen] Voice pipeline POST error:', err);
@@ -149,7 +181,7 @@ export default function VoiceScreen() {
       setVoiceState('idle');
       if (reportFailedTap) reportFailedTap();
     }
-  }, [sessionId, reportFailedTap]);
+  }, [sessionId, reportFailedTap, playAudioB64, resumeListeningIfAuto]);
 
   // Clear timers
   const clearRecordTimers = () => {
@@ -164,7 +196,7 @@ export default function VoiceScreen() {
   };
 
   // Start MediaRecorder audio capture with 1.5s sustained silence auto-stop fallback
-  const startRecording = async () => {
+  const startRecording = useCallback(async () => {
     clearRecordTimers();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -205,7 +237,11 @@ export default function VoiceScreen() {
       alert('Microphone access required for voice ordering. You can also switch to Touch Menu.');
       setVoiceState('idle');
     }
-  };
+  }, [processAudioBlob]);
+
+  useEffect(() => {
+    startRecordingRef.current = startRecording;
+  }, [startRecording]);
 
   // Stop MediaRecorder capture
   const stopRecording = () => {
@@ -302,7 +338,7 @@ export default function VoiceScreen() {
       {/* LEFT SECTION: Voice Assistant Interface */}
       <section className="flex-1 flex flex-col justify-between p-6 md:p-10 h-screen overflow-y-auto border-r-4 border-slate-300">
         {/* Header navigation bar */}
-        <header className="flex items-center justify-between border-b-4 border-slate-300 pb-6 shrink-0">
+        <header className="flex items-center justify-between border-b-4 border-slate-300 pb-6 shrink-0 gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             <button
               type="button"
@@ -322,14 +358,37 @@ export default function VoiceScreen() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigate('/order')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-lg focus:outline-none focus:ring-4 focus:ring-emerald-600 min-h-touch shadow-md"
-          >
-            <Hand className="w-6 h-6" />
-            <span>Switch to Touch Menu</span>
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Auto-listen toggle control */}
+            <button
+              type="button"
+              onClick={() => {
+                const next = !autoListenEnabled;
+                setAutoListenEnabled(next);
+                if (!next && voiceState === 'listening') {
+                  stopRecording();
+                }
+              }}
+              className={`inline-flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border-2 font-bold text-base transition-all shadow-sm focus:outline-none focus:ring-4 min-h-touch ${
+                autoListenEnabled
+                  ? 'bg-sky-100 border-sky-400 text-sky-950 hover:bg-sky-200 focus:ring-sky-400'
+                  : 'bg-slate-200 border-slate-400 text-slate-700 hover:bg-slate-300 focus:ring-slate-400'
+              }`}
+              title="Toggle automatic turn-based conversation listening"
+            >
+              <span className={`w-3.5 h-3.5 rounded-full ${autoListenEnabled ? 'bg-sky-500 animate-pulse' : 'bg-slate-400'}`} />
+              <span>{autoListenEnabled ? 'Auto-Listen: ON' : 'Auto-Listen: PAUSED'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate('/order')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-lg focus:outline-none focus:ring-4 focus:ring-emerald-600 min-h-touch shadow-md"
+            >
+              <Hand className="w-6 h-6" />
+              <span>Switch to Touch Menu</span>
+            </button>
+          </div>
         </header>
 
         {/* ISSUE 2 FIX: ALWAYS-VISIBLE LIVE CAPTION CONTAINER WITH ARIA-LIVE ACCESSIBILITY */}
@@ -345,9 +404,14 @@ export default function VoiceScreen() {
               <Volume2 className="w-6 h-6 animate-pulse" />
               <span>Live Kiosk Caption</span>
             </div>
-            <span className="px-3 py-1 rounded-full bg-slate-800 text-xs font-mono text-slate-300">
-              WCAG AAA Accessible
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${autoListenEnabled ? 'bg-sky-900/80 text-sky-200 border border-sky-500' : 'bg-slate-800 text-slate-400'}`}>
+                {autoListenEnabled ? '🔄 Auto-Turn Mode' : '✋ Tap Mode'}
+              </span>
+              <span className="px-3 py-1 rounded-full bg-slate-800 text-xs font-mono text-slate-300">
+                WCAG AAA Accessible
+              </span>
+            </div>
           </div>
 
           <p className="text-2xl md:text-3xl font-extrabold leading-relaxed text-slate-50">
@@ -423,7 +487,7 @@ export default function VoiceScreen() {
             </h2>
             <p className="text-xl text-slate-700 font-semibold max-w-md mx-auto">
               {voiceState === 'listening'
-                ? 'Tap mic button when finished speaking to send.'
+                ? autoListenEnabled ? 'Auto-listening active: Mic reopens automatically after response.' : 'Tap mic button when finished speaking to send.'
                 : 'Supports English, Hindi, or Hinglish (e.g., "Ek Samosa and Cold Coffee").'}
             </p>
           </div>
@@ -463,7 +527,7 @@ export default function VoiceScreen() {
         <CartSummary
           order={order}
           onUpdateQuantity={() => {}}
-          onReviewOrder={() => navigate('/review')}
+          onReviewOrder={() => navigate('/order')}
           isUpdating={isUpdatingOrder}
         />
       </section>

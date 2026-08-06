@@ -176,6 +176,27 @@ export async function resolveHandoff(sessionId) {
   });
 }
 
+export async function narrateScreen(sessionId, screen, context = {}) {
+  return request(`/sessions/${sessionId}/narrate`, {
+    method: 'POST',
+    body: JSON.stringify({ screen, context }),
+  });
+}
+
+export async function triggerScreenNarration(sessionId, screen, context = {}) {
+  try {
+    const res = await narrateScreen(sessionId, screen, context);
+    if (res?.tts_audio_b64) {
+      const audio = new Audio(`data:audio/mp3;base64,${res.tts_audio_b64}`);
+      audio.play().catch(() => {});
+    }
+    return res;
+  } catch (err) {
+    console.error('[ScreenNarration] Failed to fetch or play narration:', err);
+    return null;
+  }
+}
+
 /**
  * Voice Module API Endpoints
  */

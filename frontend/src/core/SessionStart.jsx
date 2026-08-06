@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from './SessionContext';
 import { Mic, Hand, Eye, RefreshCw, AlertCircle, Volume2, Sparkles } from 'lucide-react';
 
+import { triggerScreenNarration } from './api';
+
 /**
  * Mode cards metadata matching SessionMode backend enums:
  * - voice_first -> /voice
@@ -52,6 +54,7 @@ export default function SessionStart({ onNavigate }) {
   const navigate = useNavigate();
   const {
     sessionId,
+    sessionMode,
     isLoadingSession,
     sessionError,
     initSession,
@@ -70,6 +73,15 @@ export default function SessionStart({ onNavigate }) {
       initSession();
     }
   }, [sessionId, isLoadingSession, sessionError, initSession]);
+
+  // Automatic screen narration on load in voice_first mode
+  const narratedRef = useRef(false);
+  useEffect(() => {
+    if (sessionId && sessionMode === 'voice_first' && !narratedRef.current) {
+      narratedRef.current = true;
+      triggerScreenNarration(sessionId, 'start');
+    }
+  }, [sessionId, sessionMode]);
 
   // Mode selection handler
   const handleSelectMode = useCallback((modeId) => {
