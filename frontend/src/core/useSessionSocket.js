@@ -1,7 +1,18 @@
 import { useEffect, useRef, useCallback } from 'react';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
+const getWsBaseUrl = () => {
+  if (import.meta.env.VITE_WS_BASE_URL !== undefined) {
+    return import.meta.env.VITE_WS_BASE_URL;
+  }
+  if (import.meta.env.DEV) {
+    return 'ws://localhost:8000';
+  }
+  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = typeof window !== 'undefined' ? window.location.host : 'localhost:8000';
+  return `${protocol}//${host}`;
+};
+
+const WS_BASE_URL = getWsBaseUrl();
 
 /**
  * Custom React hook for session WebSocket communication.
