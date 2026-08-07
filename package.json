@@ -1,0 +1,10 @@
+{
+  "name": "kiosk-vision-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Accessible Touchscreen & Conversational Voice Kiosk System",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd backend && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"
+  }
+}

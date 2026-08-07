@@ -27,6 +27,7 @@ class MenuItemResponse(BaseModel):
 
 class OrderItemResponse(BaseModel):
     id: str
+    menu_item_id: str
     item_name: str
     unit_price: float
     quantity: int

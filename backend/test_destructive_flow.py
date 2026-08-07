@@ -53,11 +53,16 @@ def main():
     sid = session["id"]
     print(f"1. Created session: {sid}")
 
-    item_data = {"menu_item_id": "burger_classic", "quantity": 1, "modifiers": []}
-    s, order_state = req(f"{BASE}/sessions/{sid}/orders/items", "POST", item_data)
-    print(f"2. Added Classic Burger. Cart count: {len(order_state['items'])}")
+    # Fetch menu item to ensure valid menu_item_id
+    s, menu_items = req(f"{BASE}/menu")
+    target_item = menu_items[0] if menu_items else {"id": "veg_burger", "name": "Veg Burger"}
+    target_id = target_item["id"]
 
-    cart_before = [{"id": "burger_classic", "quantity": 1, "modifiers": []}]
+    item_data = {"menu_item_id": target_id, "quantity": 1, "modifiers": None}
+    s, order_state = req(f"{BASE}/sessions/{sid}/orders/items", "POST", item_data)
+    print(f"2. Added {target_item.get('name', target_id)}. Cart count: {len(order_state['items'])}")
+
+    cart_before = [{"id": target_id, "quantity": 1, "modifiers": []}]
 
     # ---- TURN 1: remove the burger (should ask, NOT delete) ----
     print("\n--- TURN 1: User says 'remove the burger' ---")
@@ -104,8 +109,8 @@ def main():
     pending_actions.set_pending(
         sid,
         "remove_item",
-        [{"id": "burger_classic", "quantity": 1, "modifiers": []}],
-        "Just to confirm, remove the Classic Burger?",
+        [{"id": target_id, "quantity": 1, "modifiers": []}],
+        "Just to confirm, remove the item?",
     )
 
     classification_yes = pending_actions.classify_confirmation_response("yes")
@@ -117,7 +122,8 @@ def main():
     # Execute removal via REST (mirrors _apply_intent remove_item)
     s, order_before_yes = req(f"{BASE}/sessions/{sid}/orders")
     for item in order_before_yes["items"]:
-        if item["menu_item_id"] in remove_ids:
+        item_menu_id = item.get("menu_item_id") or item.get("id")
+        if item_menu_id in remove_ids or item.get("id") in remove_ids:
             req(f"{BASE}/sessions/{sid}/orders/items/{item['id']}", "DELETE")
     pending_actions.clear_pending(sid)
 
