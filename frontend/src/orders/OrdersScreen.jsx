@@ -97,7 +97,10 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
       }
 
       const menuData = await getMenu();
-      setMenu(menuData);
+
+console.log("MENU DATA FROM BACKEND:", menuData);
+
+setMenu(Array.isArray(menuData) ? menuData : []);
 
       if (currentSessionId) {
         const orderData = await getOrder(currentSessionId);
@@ -360,44 +363,49 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
         )}
       </section>
 
-      {/* RIGHT SECTION (~30-35% width): Persistent Desktop Cart / Bottom Sheet Mobile Cart */}
-      <section className="hidden md:block w-[380px] lg:w-[440px] shrink-0 h-screen overflow-hidden">
+      {/* CART IS NOW SHOWN FROM THE BOTTOM */}
+    {order?.items?.length > 0 && (
+  <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
+
+    <button
+      type="button"
+      onClick={() => setShowMobileCart(!showMobileCart)}
+      className="pointer-events-auto mx-auto mb-3 w-[90%] max-w-xl p-4 bg-slate-950 text-white rounded-2xl flex items-center justify-between font-black text-lg shadow-2xl border-2 border-slate-700"
+    >
+      <div className="flex items-center gap-3">
+        <ShoppingBag className="w-7 h-7 text-sky-400" />
+        <span>
+          View Cart • {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <span className="text-emerald-400">
+          ₹{order?.total || 0}
+        </span>
+
+        <ChevronUp
+          className={`w-7 h-7 transition-transform ${
+            showMobileCart ? 'rotate-180' : ''
+          }`}
+        />
+      </div>
+    </button>
+
+    {showMobileCart && (
+  <div className="pointer-events-auto fixed bottom-[72px] left-0 right-0 z-50 max-h-[65vh] overflow-y-auto bg-white rounded-t-3xl shadow-2xl border-4 border-slate-300">
         <CartSummary
           order={order}
           onUpdateQuantity={handleUpdateQuantity}
           onReviewOrder={handleReview}
           isUpdating={isUpdatingOrder}
         />
-      </section>
-
-      {/* Mobile Cart Bottom Sheet Drawer (Narrow Viewports) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t-4 border-slate-300 shadow-2xl">
-        <button
-          type="button"
-          onClick={() => setShowMobileCart(!showMobileCart)}
-          className="w-full p-4 bg-slate-950 text-white flex items-center justify-between font-black text-xl min-h-touch"
-        >
-          <div className="flex items-center gap-3">
-            <ShoppingBag className="w-7 h-7 text-sky-400" />
-            <span>Order Summary ({order?.items?.length || 0} items)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-emerald-400">₹{order?.total || 0}</span>
-            <ChevronUp className={`w-7 h-7 transition-transform ${showMobileCart ? 'rotate-180' : ''}`} />
-          </div>
-        </button>
-
-        {showMobileCart && (
-          <div className="max-h-[60vh] overflow-y-auto">
-            <CartSummary
-              order={order}
-              onUpdateQuantity={handleUpdateQuantity}
-              onReviewOrder={handleReview}
-              isUpdating={isUpdatingOrder}
-            />
-          </div>
-        )}
       </div>
+    )}
+
+  </div>
+)}
+
 
       {/* MODIFIER PICKER MODAL */}
       {modifierItem && (
