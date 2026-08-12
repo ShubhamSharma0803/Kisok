@@ -3,7 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '../core/SessionContext';
 import { useHandoff } from '../core/HandoffProvider';
 import { useSessionSocket } from '../core/useSessionSocket';
-import { sendVoiceAudio, getOrder } from '../core/api';
+import {
+  sendVoiceAudio,
+  getOrder,
+  deleteOrderItem,
+  updateOrderItemQuantity,
+} from '../core/api';
 import CartSummary from '../orders/CartSummary';
 import {
   Mic,
@@ -12,8 +17,8 @@ import {
   Send,
   Hand,
   MessageSquare,
-  AlertCircle,
-  HelpCircle,
+  ShoppingBag,
+  ChevronUp,
 } from 'lucide-react';
 
 /**
@@ -31,6 +36,7 @@ export default function VoiceScreen() {
   const [latestCaption, setLatestCaption] = useState('Welcome! Say what you would like to order, e.g. "Add a Veg Burger and Cold Coffee"');
   const [order, setOrder] = useState(null);
   const [textInput, setTextInput] = useState('');
+  const [showMobileCart, setShowMobileCart] = useState(false);
   const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
   const [textInputStatus, setTextInputStatus] = useState('');
 
@@ -522,15 +528,113 @@ export default function VoiceScreen() {
         </form>
       </section>
 
-      {/* RIGHT SECTION: Cart Summary Panel */}
-      <section className="w-full lg:w-[440px] shrink-0 h-screen overflow-hidden border-t-4 lg:border-t-0 lg:border-l-4 border-slate-300">
+      {/* BLINKIT STYLE BOTTOM CART */}
+{order?.items?.length > 0 && (
+  <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none flex justify-center pb-4">
+
+    {/* VIEW CART BUTTON */}
+    <button
+      type="button"
+      onClick={() => setShowMobileCart(!showMobileCart)}
+      className="
+        pointer-events-auto
+        w-[90%] max-w-md
+        p-4
+        bg-emerald-600
+        hover:bg-emerald-700
+        text-white
+        rounded-2xl
+        flex items-center justify-between
+        font-black text-lg
+        shadow-2xl
+        transition-all
+      "
+    >
+      <div className="flex items-center gap-3">
+        <ShoppingBag className="w-7 h-7" />
+
+        <span>
+          View Cart • {order.items.length}{' '}
+          {order.items.length === 1 ? 'item' : 'items'}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <span>
+          ₹{order?.total || 0}
+        </span>
+
+        <ChevronUp
+          className={`w-7 h-7 transition-transform ${
+            showMobileCart ? 'rotate-180' : ''
+          }`}
+        />
+      </div>
+    </button>
+
+    {/* CART POPUP */}
+    {showMobileCart && (
+      <div
+        className="
+          pointer-events-auto
+          fixed
+          bottom-[90px]
+          left-1/2
+          -translate-x-1/2
+          w-[90%]
+          max-w-md
+          max-h-[60vh]
+          overflow-y-auto
+          bg-white
+          rounded-3xl
+          shadow-2xl
+          border-4
+          border-slate-300
+          z-50
+        "
+      >
         <CartSummary
           order={order}
-          onUpdateQuantity={() => {}}
+          onUpdateQuantity={async (item, newQuantity) => {
+            if (!sessionId || !item?.id) return;
+
+            setIsUpdatingOrder(true);
+
+            try {
+              let updatedOrder;
+
+              if (newQuantity <= 0) {
+                updatedOrder = await deleteOrderItem(
+                  sessionId,
+                  item.id
+                );
+              } else {
+                updatedOrder = await updateOrderItemQuantity(
+                  sessionId,
+                  item.id,
+                  newQuantity
+                );
+              }
+
+              setOrder(updatedOrder);
+            } catch (err) {
+              console.error(
+                '[VoiceScreen] Failed to update cart:',
+                err
+              );
+            } finally {
+              setIsUpdatingOrder(false);
+            }
+          }}
+
           onReviewOrder={() => navigate('/order')}
           isUpdating={isUpdatingOrder}
         />
-      </section>
+      </div>
+    )}
+    </div>
+)}
     </main>
-  );
+  
+);
 }
