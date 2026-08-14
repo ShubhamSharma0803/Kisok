@@ -6,6 +6,10 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['DM Sans', 'Noto Sans Devanagari', 'sans-serif'],
+        display: ['Playfair Display', 'Noto Sans Devanagari', 'serif'],
+      },
       spacing: {
         'touch': '48px',
         'touch-lg': '64px',

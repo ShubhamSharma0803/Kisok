@@ -7,52 +7,66 @@ import { useSessionSocket } from '../core/useSessionSocket';
 import { getMenu, getOrder, addOrderItem, updateOrderItemQuantity, deleteOrderItem, triggerScreenNarration } from '../core/api';
 import CartSummary from './CartSummary';
 import {
+  ArrowLeft,
+  ChefHat,
   Coffee,
-  Utensils,
-  IceCream,
   Grid,
+  IceCream,
+  Leaf,
   Plus,
   Check,
   X,
   RefreshCw,
   AlertCircle,
   ShoppingBag,
+  Sparkles,
+  Utensils,
   Volume2,
   ChevronUp,
 } from 'lucide-react';
 
-function MenuItemImage({ src, alt }) {
-  const [hasError, setHasError] = useState(false);
+const FALLBACK_IMAGES = {
+  all: 'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=900&q=80',
+  drinks: 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=900&q=80',
+  food: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=900&q=80',
+  dessert: 'https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=900&q=80',
+};
 
-  if (hasError || !src) {
-    return (
-      <div className="w-full h-44 rounded-2xl bg-slate-100 border-2 border-slate-200 flex flex-col items-center justify-center text-slate-500 space-y-1">
-        <Utensils className="w-12 h-12 text-slate-600" />
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Freshly Prepared</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-full h-44 rounded-2xl overflow-hidden border-2 border-slate-200 bg-slate-100 relative">
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        onError={() => setHasError(true)}
-        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-200"
-      />
-    </div>
-  );
-}
-
-// Category icon mapper helper
 const CATEGORY_ICONS = {
   all: Grid,
   drinks: Coffee,
   food: Utensils,
   dessert: IceCream,
 };
+
+const formatPrice = (value) =>
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+
+function MenuItemImage({ src, alt, category }) {
+  const [hasError, setHasError] = useState(false);
+  const imageSrc = hasError || !src ? FALLBACK_IMAGES[category] || FALLBACK_IMAGES.food : src;
+
+  return (
+    <div className="relative w-full aspect-[1.18] overflow-hidden bg-[#f0e6d8]">
+      <img
+        src={imageSrc}
+        alt={alt}
+        loading="lazy"
+        onError={() => setHasError(true)}
+        className="h-full w-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#160f0a]/55 via-[#160f0a]/5 to-transparent" />
+      <div className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b4a2f] shadow-sm backdrop-blur">
+        <Sparkles className="h-3 w-3" />
+        Fresh
+      </div>
+    </div>
+  );
+}
 
 export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
   const navigate = useNavigate();
@@ -67,7 +81,7 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
 
   const handleReview = () => {
     if (onReviewOrder) onReviewOrder();
-    else navigate('/order');
+    else navigate('/review');
   };
 
   const [menu, setMenu] = useState([]);
@@ -76,16 +90,10 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isUpdatingOrder, setIsUpdatingOrder] = useState(false);
-  const [nonInteractiveTapCount, setNonInteractiveTapCount] = useState(0);
-
-  // Modifier picker modal state
   const [modifierItem, setModifierItem] = useState(null);
   const [selectedModifiers, setSelectedModifiers] = useState([]);
-
-  // Mobile bottom-sheet cart toggle
   const [showMobileCart, setShowMobileCart] = useState(false);
 
-  // 1. Initial Data Fetching (Menu + Order)
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -97,10 +105,7 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
       }
 
       const menuData = await getMenu();
-
-console.log("MENU DATA FROM BACKEND:", menuData);
-
-setMenu(Array.isArray(menuData) ? menuData : []);
+      setMenu(Array.isArray(menuData) ? menuData : []);
 
       if (currentSessionId) {
         const orderData = await getOrder(currentSessionId);
@@ -118,12 +123,10 @@ setMenu(Array.isArray(menuData) ? menuData : []);
     fetchData();
   }, [fetchData]);
 
-  // 2. Real-time WebSocket listener for order_updated event (e.g. from voice ordering)
   useEffect(() => {
     if (!sessionId) return;
 
     const unsubscribe = subscribe('order_updated', (updatedOrderPayload) => {
-      console.log('[OrdersScreen] Received order_updated WebSocket event:', updatedOrderPayload);
       setOrder(updatedOrderPayload);
     });
 
@@ -132,17 +135,17 @@ setMenu(Array.isArray(menuData) ? menuData : []);
     };
   }, [sessionId, subscribe]);
 
-  // Derive categories list from fetched menu items
   const categories = useMemo(() => {
     const unique = Array.from(new Set(menu.map((item) => item.category).filter(Boolean)));
     return ['all', ...unique];
   }, [menu]);
 
-  // Filter menu items by selected category
   const filteredMenuItems = useMemo(() => {
     if (selectedCategory === 'all') return menu;
     return menu.filter((item) => item.category === selectedCategory);
   }, [menu, selectedCategory]);
+
+  const featuredItem = filteredMenuItems[0] || menu[0];
 
   useEffect(() => {
     setNarrationContext({ category: selectedCategory, count: filteredMenuItems.length });
@@ -156,9 +159,7 @@ setMenu(Array.isArray(menuData) ? menuData : []);
     }
   }, [sessionId, sessionMode, isLoading, selectedCategory, filteredMenuItems.length]);
 
-  // Handle Add Item action
   const handleAddItemClick = (item) => {
-    // Check if item has modifier options
     if (item.available_modifiers) {
       const modifierList = item.available_modifiers
         .split(',')
@@ -172,11 +173,9 @@ setMenu(Array.isArray(menuData) ? menuData : []);
       }
     }
 
-    // Direct add if no modifiers required
     executeAddItem(item.id, 1, null);
   };
 
-  // Dispatch API call to add item
   const executeAddItem = async (menuItemId, quantity = 1, modifiers = null) => {
     if (!sessionId) return;
     setIsUpdatingOrder(true);
@@ -185,6 +184,7 @@ setMenu(Array.isArray(menuData) ? menuData : []);
       setOrder(updatedOrder);
       setModifierItem(null);
       setSelectedModifiers([]);
+      setShowMobileCart(true);
     } catch (err) {
       console.error('[OrdersScreen] Failed to add item to order:', err);
       if (reportFailedTap) reportFailedTap();
@@ -194,7 +194,6 @@ setMenu(Array.isArray(menuData) ? menuData : []);
     }
   };
 
-  // Quantity adjustment from CartSummary using PATCH and DELETE endpoints
   const handleUpdateQuantity = async (item, newQuantity) => {
     if (!sessionId || !item?.id) return;
     setIsUpdatingOrder(true);
@@ -213,7 +212,6 @@ setMenu(Array.isArray(menuData) ? menuData : []);
     }
   };
 
-  // Toggle modifier selection
   const toggleModifier = (mod) => {
     setSelectedModifiers((prev) =>
       prev.includes(mod) ? prev.filter((m) => m !== mod) : [...prev, mod]
@@ -227,259 +225,328 @@ setMenu(Array.isArray(menuData) ? menuData : []);
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900 flex flex-col md:flex-row overflow-hidden">
-      {/* LEFT SECTION (~65-70% width): Category Rail + Menu Grid */}
-      <section className="flex-1 flex flex-col h-screen overflow-hidden border-r-4 border-slate-300">
-        {/* Header Bar */}
-        <header className="bg-white border-b-4 border-slate-300 p-4 md:px-8 md:py-6 flex items-center justify-between shadow-sm shrink-0">
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="px-5 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-950 font-extrabold text-lg focus:outline-none focus:ring-4 focus:ring-slate-950 min-h-touch transition-all"
-              aria-label="Back to Session Start"
-            >
-              ← Back
-            </button>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-black text-slate-950 tracking-tight">
-                Select Your Items
-              </h1>
-              <p className="text-lg text-slate-700 font-medium">
-                Tap items to add them to your order. Voice ordering is active.
-              </p>
-            </div>
-          </div>
+    <main className="premium-shell min-h-screen overflow-hidden text-[#211b17]">
+      <div className="flex h-screen">
+        <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="shrink-0 border-b border-[#e7dccd] bg-[#fffaf3]/95 px-5 py-4 shadow-[0_10px_30px_rgba(58,39,24,.06)] backdrop-blur md:px-8">
+            <div className="flex items-center justify-between gap-5">
+              <div className="flex min-w-0 items-center gap-4">
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#d7c7b4] bg-white text-[#3a2c22] shadow-sm transition hover:bg-[#f5eadc] active:scale-95 focus:outline-none focus:ring-4 focus:ring-[#b66b3c]/25"
+                  aria-label="Back to session start"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#a76538]">The Kiosk Kitchen</p>
+                  <h1 className="font-display text-3xl font-semibold leading-none text-[#231a15] md:text-5xl">
+                    Premium dining menu
+                  </h1>
+                </div>
+              </div>
 
-          <div className="hidden lg:flex items-center gap-3 px-4 py-2 rounded-xl bg-sky-100 border-2 border-sky-400 text-sky-900 text-base font-bold">
-            <Volume2 className="w-6 h-6 text-sky-700 animate-pulse" />
-            <span>Voice Ready — Speak Anytime</span>
-          </div>
-        </header>
-
-        {/* Loading State */}
-        {isLoading && (
-          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-4">
-            <RefreshCw className="w-16 h-16 text-sky-700 animate-spin" />
-            <p className="text-3xl font-extrabold text-slate-900">Loading Menu...</p>
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && !isLoading && (
-          <div className="flex-1 flex items-center justify-center p-8">
-            <div className="max-w-xl w-full p-8 rounded-3xl bg-red-50 border-4 border-red-600 text-center space-y-6 shadow-xl">
-              <AlertCircle className="w-16 h-16 text-red-600 mx-auto" />
-              <h2 className="text-3xl font-black text-red-950">Failed to Load Menu</h2>
-              <p className="text-xl font-semibold text-slate-800">{error}</p>
-              <button
-                type="button"
-                onClick={fetchData}
-                className="px-8 min-h-touch text-2xl font-black bg-red-700 hover:bg-red-800 text-white rounded-2xl focus:outline-none focus:ring-4 focus:ring-red-900 min-h-touch"
-              >
-                Retry
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Category Rail + Menu Grid Container */}
-        {!isLoading && !error && (
-          <div className="flex-1 flex overflow-hidden">
-            {/* Category Rail (Far Left) */}
-            <nav
-              className="w-36 md:w-48 bg-white border-r-4 border-slate-300 p-3 space-y-3 overflow-y-auto shrink-0"
-              aria-label="Menu Categories"
-            >
-              {categories.map((cat) => {
-                const IconComponent = CATEGORY_ICONS[cat.toLowerCase()] || Utensils;
-                const isSelected = selectedCategory === cat;
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`
-                      w-full flex flex-col md:flex-row items-center gap-3 p-3 md:p-4 rounded-2xl
-                      font-black text-lg md:text-xl capitalize transition-all duration-150
-                      min-h-touch focus:outline-none focus:ring-4 focus:ring-slate-950 focus:ring-offset-2
-                      ${
-                        isSelected
-                          ? 'bg-slate-950 text-white border-4 border-slate-950 shadow-md'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-900 border-2 border-slate-300'
-                      }
-                    `}
-                    aria-current={isSelected ? 'page' : undefined}
-                  >
-                    <IconComponent className={`w-7 h-7 ${isSelected ? 'text-sky-400' : 'text-slate-700'}`} strokeWidth={2.5} />
-                    <span className="truncate">{cat}</span>
-                  </button>
-                );
-              })}
-            </nav>
-
-            {/* Menu Items Grid (Center Left) */}
-            <div className="flex-1 p-6 md:p-8 overflow-y-auto bg-slate-100">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredMenuItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex flex-col justify-between bg-white rounded-3xl border-4 border-slate-300 hover:border-slate-800 shadow-md p-6 space-y-4 transition-all"
-                  >
-                    {/* Food Image */}
-                    <MenuItemImage src={item.image_url} alt={item.name} />
-
-                    {/* Item Details */}
-                    <div className="space-y-1">
-                      <h3 className="text-2xl font-black text-slate-950 leading-tight">
-                        {item.name}
-                      </h3>
-                      {item.name_hi && (
-                        <p className="text-lg font-bold text-slate-600">
-                          {item.name_hi}
-                        </p>
-                      )}
-                      <p className="text-2xl font-black text-emerald-700 pt-1">
-                        ₹{item.price}
-                      </p>
-                    </div>
-
-                    {/* Prominent Large Add Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleAddItemClick(item)}
-                      disabled={isUpdatingOrder}
-                      className="w-full flex items-center justify-center gap-3 px-6 min-h-touch text-xl font-black bg-slate-900 hover:bg-slate-800 text-white rounded-2xl focus:outline-none focus:ring-4 focus:ring-slate-950 focus:ring-offset-2 active:scale-[0.98] shadow-md transition-all disabled:opacity-50"
-                      aria-label={`Add ${item.name} to order for ${item.price} rupees`}
-                    >
-                      <Plus className="w-6 h-6 stroke-[3]" />
-                      <span>Add to Order</span>
-                    </button>
-                  </div>
-                ))}
+              <div className="hidden items-center gap-3 rounded-full border border-[#e7dccd] bg-white px-4 py-2.5 shadow-sm lg:flex">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#21382f] text-[#e9bd67]">
+                  <Volume2 className="h-4 w-4" />
+                </div>
+                <div className="leading-tight">
+                  <p className="text-sm font-bold text-[#2b241f]">Voice ordering</p>
+                  <p className="text-xs font-medium text-[#928274]">Ready at your table</p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </section>
+          </header>
 
-      {/* CART IS NOW SHOWN FROM THE BOTTOM */}
-    {order?.items?.length > 0 && (
-  <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
+          {isLoading && (
+            <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-[#f7efe5] p-12 text-center">
+              <RefreshCw className="h-14 w-14 animate-spin text-[#9b5933]" />
+              <p className="font-display text-4xl font-semibold text-[#241a14]">Preparing the menu</p>
+              <p className="text-base font-medium text-[#817166]">Fresh dishes are loading now.</p>
+            </div>
+          )}
 
-    <button
-      type="button"
-      onClick={() => setShowMobileCart(!showMobileCart)}
-      className="pointer-events-auto mx-auto mb-3 w-[90%] max-w-xl p-4 bg-slate-950 text-white rounded-2xl flex items-center justify-between font-black text-lg shadow-2xl border-2 border-slate-700"
-    >
-      <div className="flex items-center gap-3">
-        <ShoppingBag className="w-7 h-7 text-sky-400" />
-        <span>
-          View Cart • {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
-        </span>
+          {error && !isLoading && (
+            <div className="flex flex-1 items-center justify-center bg-[#f7efe5] p-8">
+              <div className="w-full max-w-xl rounded-[1.75rem] border border-red-200 bg-white p-8 text-center shadow-xl">
+                <AlertCircle className="mx-auto h-14 w-14 text-red-600" />
+                <h2 className="mt-4 font-display text-4xl font-semibold text-red-950">Menu unavailable</h2>
+                <p className="mt-3 text-base font-medium text-[#67594f]">{error}</p>
+                <button
+                  type="button"
+                  onClick={fetchData}
+                  className="mt-6 min-h-touch rounded-full bg-[#21382f] px-8 text-base font-bold text-white shadow-lg transition hover:bg-[#172a22] focus:outline-none focus:ring-4 focus:ring-[#21382f]/25"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!isLoading && !error && (
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              <nav
+                className="premium-scroll w-24 shrink-0 overflow-y-auto border-r border-[#e7dccd] bg-[#f7efe5] px-3 py-5 md:w-56 md:px-5"
+                aria-label="Menu categories"
+              >
+                <div className="hidden px-2 pb-5 md:block">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-[#a76538]">Menu</p>
+                  <p className="mt-1 text-xs font-medium text-[#8c7d70]">Select a course</p>
+                </div>
+
+                <div className="space-y-2">
+                  {categories.map((cat) => {
+                    const IconComponent = CATEGORY_ICONS[cat.toLowerCase()] || ChefHat;
+                    const isSelected = selectedCategory === cat;
+
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`group flex w-full flex-col items-center gap-2 rounded-[1.35rem] px-2 py-3 text-center text-xs font-bold capitalize transition md:flex-row md:px-4 md:py-4 md:text-left md:text-sm ${
+                          isSelected
+                            ? 'bg-[#1f352d] text-white shadow-[0_14px_28px_rgba(31,53,45,.22)]'
+                            : 'text-[#67594f] hover:bg-white hover:shadow-sm'
+                        }`}
+                        aria-current={isSelected ? 'page' : undefined}
+                      >
+                        <span
+                          className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
+                            isSelected ? 'bg-[#2d4d40] text-[#e9bd67]' : 'bg-[#eadfce] text-[#9b6a47]'
+                          }`}
+                        >
+                          <IconComponent className="h-5 w-5" />
+                        </span>
+                        <span className="max-w-full truncate">{cat}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </nav>
+
+              <div className="premium-scroll min-w-0 flex-1 overflow-y-auto bg-[#fbf6ef] px-5 pb-28 pt-5 md:px-8 md:pb-8 lg:px-10">
+                <div className="relative mb-7 overflow-hidden rounded-[2rem] bg-[#1f352d] p-5 text-white shadow-[0_24px_55px_rgba(46,31,20,.16)] md:p-7">
+                  <img
+                    src={featuredItem?.image_url || FALLBACK_IMAGES[selectedCategory] || FALLBACK_IMAGES.all}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover opacity-35"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#17110d]/90 via-[#17110d]/58 to-[#17110d]/20" />
+                  <div className="relative max-w-xl">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/12 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#f2c875] backdrop-blur">
+                      <ChefHat className="h-3.5 w-3.5" />
+                      Chef curated
+                    </div>
+                    <h2 className="mt-4 font-display text-4xl font-semibold leading-tight md:text-6xl">
+                      Order like you are dining in.
+                    </h2>
+                    <p className="mt-3 max-w-lg text-sm font-medium leading-6 text-white/82 md:text-base">
+                      Browse rich food photos, choose your favorites, and send a polished table order in seconds.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mb-5 flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#a76538]">Today's selection</p>
+                    <h2 className="mt-1 font-display text-3xl font-semibold text-[#2a201a]">Made fresh for you</h2>
+                    <p className="mt-1 text-sm font-medium text-[#86766a]">{filteredMenuItems.length} dishes available</p>
+                  </div>
+                  <span className="hidden rounded-full border border-[#e6d9c8] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[#8c7d70] md:block">
+                    Tap to order
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                  {filteredMenuItems.map((item) => (
+                    <article
+                      key={item.id}
+                      className="group overflow-hidden rounded-[1.75rem] border border-[#eadfce] bg-white shadow-[0_12px_35px_rgba(70,47,31,.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_55px_rgba(70,47,31,.15)]"
+                    >
+                      <MenuItemImage src={item.image_url} alt={item.name} category={item.category} />
+
+                      <div className="p-5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h3 className="font-display text-[1.7rem] font-semibold leading-[1.05] text-[#2a201a]">
+                              {item.name}
+                            </h3>
+                            {item.name_hi && (
+                              <p className="mt-1 truncate text-sm font-semibold text-[#9a8a7d]">{item.name_hi}</p>
+                            )}
+                          </div>
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#eef5e8] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#4c7a45]">
+                            <Leaf className="h-3 w-3" />
+                            Veg
+                          </span>
+                        </div>
+
+                        <div className="mt-5 flex items-center justify-between border-t border-[#eee3d4] pt-4">
+                          <div>
+                            <p className="font-display text-3xl font-semibold text-[#8b4f2d]">{formatPrice(item.price)}</p>
+                            <p className="text-xs font-semibold text-[#a2968b]">Prepared on order</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAddItemClick(item)}
+                            disabled={isUpdatingOrder}
+                            className="flex h-14 min-w-[8.75rem] items-center justify-center gap-2 rounded-full bg-[#1f352d] px-5 text-sm font-bold text-white shadow-[0_10px_20px_rgba(31,53,45,.22)] transition hover:bg-[#16261f] active:scale-[0.98] disabled:opacity-50 focus:outline-none focus:ring-4 focus:ring-[#b66b3c]/25"
+                            aria-label={`Add ${item.name} to order for ${item.price} rupees`}
+                          >
+                            <Plus className="h-4 w-4 stroke-[3]" />
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <aside className="hidden h-screen w-[390px] shrink-0 border-l border-[#e7dccd] bg-[#fffaf3] lg:block xl:w-[430px]">
+          <CartSummary
+            order={order}
+            onUpdateQuantity={handleUpdateQuantity}
+            onReviewOrder={handleReview}
+            isUpdating={isUpdatingOrder}
+          />
+        </aside>
       </div>
 
-      <div className="flex items-center gap-2">
-        <span className="text-emerald-400">
-          ₹{order?.total || 0}
-        </span>
+      {order?.items?.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none lg:hidden">
+          <button
+            type="button"
+            onClick={() => setShowMobileCart(!showMobileCart)}
+            className="pointer-events-auto mx-auto mb-4 flex w-[92%] max-w-lg items-center justify-between rounded-[1.35rem] border border-[#3b554b] bg-[#1f352d] px-5 py-3.5 font-bold text-white shadow-[0_16px_40px_rgba(31,53,45,.3)] transition active:scale-[0.98]"
+          >
+            <div className="flex items-center gap-3">
+              <ShoppingBag className="h-6 w-6 text-[#e9bd67]" />
+              <span className="text-sm md:text-base">
+                Your order · {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-display text-lg font-semibold text-[#e9bd67]">{formatPrice(order?.total || 0)}</span>
+              <ChevronUp className={`h-5 w-5 text-white/75 transition-transform ${showMobileCart ? 'rotate-180' : ''}`} />
+            </div>
+          </button>
 
-        <ChevronUp
-          className={`w-7 h-7 transition-transform ${
-            showMobileCart ? 'rotate-180' : ''
-          }`}
-        />
-      </div>
-    </button>
+          {showMobileCart && (
+            <div className="pointer-events-auto fixed bottom-[78px] left-1/2 z-50 max-h-[48vh] w-[92%] max-w-xl -translate-x-1/2 overflow-y-auto rounded-[1.75rem] border border-[#e5d9c8] bg-[#fffaf3] shadow-2xl">
+              <CartSummary
+                order={order}
+                onUpdateQuantity={handleUpdateQuantity}
+                onReviewOrder={handleReview}
+                isUpdating={isUpdatingOrder}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
-    {showMobileCart && (
-  <div className="pointer-events-auto fixed bottom-[72px] left-0 right-0 z-50 max-h-[65vh] overflow-y-auto bg-white rounded-t-3xl shadow-2xl border-4 border-slate-300">
-        <CartSummary
-          order={order}
-          onUpdateQuantity={handleUpdateQuantity}
-          onReviewOrder={handleReview}
-          isUpdating={isUpdatingOrder}
-        />
-      </div>
-    )}
-
-  </div>
-)}
-
-
-      {/* MODIFIER PICKER MODAL */}
       {modifierItem && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#211b17]/65 p-4 backdrop-blur-md"
           role="dialog"
           aria-modal="true"
           aria-labelledby="modifier-title"
         >
-          <div className="bg-white rounded-3xl border-4 border-slate-950 max-w-lg w-full p-8 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-start justify-between border-b-2 border-slate-200 pb-4">
-              <div>
-                <span className="px-3 py-1 rounded-md bg-sky-100 text-sky-900 text-sm font-black uppercase">Customize</span>
-                <h2 id="modifier-title" className="text-3xl font-black text-slate-950 mt-1">
-                  {modifierItem.name}
-                </h2>
+          <div className="w-full max-w-xl overflow-hidden rounded-[2rem] border border-[#e5d9c8] bg-[#fffaf3] shadow-[0_30px_80px_rgba(42,32,26,.28)]">
+            <div className="h-1.5 bg-[#1f352d]" />
+            <div className="p-6 md:p-8">
+              <div className="flex items-start justify-between gap-4 border-b border-[#e5d9c8] pb-6">
+                <div>
+                  <div className="inline-flex items-center rounded-full bg-[#f3eadf] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#a06036]">
+                    Customize your order
+                  </div>
+                  <h2 id="modifier-title" className="mt-3 font-display text-4xl font-semibold leading-tight text-[#2a201a]">
+                    {modifierItem.name}
+                  </h2>
+                  <p className="mt-1 text-sm font-medium text-[#95877a]">Make it exactly the way you like it.</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModifierItem(null);
+                    setSelectedModifiers([]);
+                  }}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f3eadf] text-[#5f5044] transition hover:bg-[#eadbc9] active:scale-95 focus:outline-none focus:ring-4 focus:ring-[#b66b3c]/20"
+                  aria-label="Close modifier picker"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setModifierItem(null)}
-                className="w-12 h-12 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center focus:outline-none focus:ring-4 focus:ring-slate-950 min-h-touch"
-                aria-label="Close modifier picker"
-              >
-                <X className="w-7 h-7" />
-              </button>
-            </div>
 
-            <p className="text-xl font-bold text-slate-800">
-              Select optional modifiers below:
-            </p>
+              <div className="pt-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-[#2a201a]">Choose your extras</h3>
+                    <p className="mt-1 text-xs font-medium text-[#95877a]">Select any options you would like to add.</p>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#a06036]">Optional</span>
+                </div>
 
-            <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-              {modifierItem.parsedModifiers.map((mod) => {
-                const isSelected = selectedModifiers.includes(mod);
-                return (
-                  <button
-                    key={mod}
-                    type="button"
-                    onClick={() => toggleModifier(mod)}
-                    className={`
-                      w-full flex items-center justify-between p-4 rounded-2xl border-4 text-xl font-black text-left
-                      min-h-touch focus:outline-none focus:ring-4 focus:ring-slate-950 transition-all
-                      ${
-                        isSelected
-                          ? 'bg-sky-50 border-sky-600 text-sky-950'
-                          : 'bg-slate-50 border-slate-300 text-slate-800 hover:border-slate-400'
-                      }
-                    `}
-                  >
-                    <span className="capitalize">{mod}</span>
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center border-2 ${isSelected ? 'bg-sky-600 border-sky-600 text-white' : 'border-slate-400 bg-white'}`}>
-                      {isSelected && <Check className="w-6 h-6 stroke-[3]" />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                <div className="premium-scroll max-h-64 space-y-3 overflow-y-auto pr-1">
+                  {modifierItem.parsedModifiers.map((mod) => {
+                    const isSelected = selectedModifiers.includes(mod);
 
-            <div className="pt-4 border-t-2 border-slate-200 flex gap-4">
-              <button
-                type="button"
-                onClick={() => setModifierItem(null)}
-                className="flex-1 min-h-touch text-xl font-extrabold bg-slate-200 hover:bg-slate-300 text-slate-900 rounded-2xl focus:outline-none focus:ring-4 focus:ring-slate-950"
-              >
-                Cancel
-              </button>
+                    return (
+                      <button
+                        key={mod}
+                        type="button"
+                        onClick={() => toggleModifier(mod)}
+                        className={`flex w-full items-center justify-between rounded-2xl border px-5 py-4 text-left transition active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-[#b66b3c]/15 ${
+                          isSelected
+                            ? 'border-[#b96235] bg-[#f3eadf] shadow-[0_6px_18px_rgba(185,98,53,.1)]'
+                            : 'border-[#e5d9c8] bg-[#fffaf3] hover:bg-[#f6efe6]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <span
+                            className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${
+                              isSelected ? 'border-[#1f352d] bg-[#1f352d]' : 'border-[#cbbba7] bg-white'
+                            }`}
+                          >
+                            {isSelected && <Check className="h-4 w-4 text-[#e9bd67]" strokeWidth={3} />}
+                          </span>
+                          <span className="text-base font-bold capitalize text-[#4f4036]">{mod}</span>
+                        </div>
+                        {isSelected && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#a06036]">Added</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-              <button
-                type="button"
-                onClick={handleConfirmModifiers}
-                className="flex-1 min-h-touch text-xl font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl focus:outline-none focus:ring-4 focus:ring-emerald-600 shadow-lg"
-              >
-                Confirm Add
-              </button>
+              <div className="mt-7 flex gap-3 border-t border-[#e5d9c8] pt-5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModifierItem(null);
+                    setSelectedModifiers([]);
+                  }}
+                  className="min-h-touch flex-1 rounded-full border border-[#ded2c2] bg-white text-base font-bold text-[#5f5044] transition hover:bg-[#f6efe6] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-[#b66b3c]/15"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmModifiers}
+                  className="min-h-touch flex-[1.4] rounded-full bg-[#1f352d] text-base font-bold text-white shadow-[0_8px_20px_rgba(31,53,45,.2)] transition hover:bg-[#16261f] active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-[#1f352d]/20"
+                >
+                  Confirm Add
+                </button>
+              </div>
             </div>
           </div>
         </div>
