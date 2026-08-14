@@ -340,301 +340,475 @@ export default function VoiceScreen() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900 flex flex-col lg:flex-row overflow-hidden font-sans">
-      {/* LEFT SECTION: Voice Assistant Interface */}
-      <section className="flex-1 flex flex-col justify-between p-6 md:p-10 h-screen overflow-y-auto border-r-4 border-slate-300">
-        {/* Header navigation bar */}
-        <header className="flex items-center justify-between border-b-4 border-slate-300 pb-6 shrink-0 gap-4 flex-wrap">
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-900 font-extrabold text-base focus:outline-none focus:ring-4 focus:ring-slate-950 min-h-touch"
-            >
-              ← Start Over
-            </button>
+  <main className="min-h-screen bg-[#f5f0e8] text-[#211b17] font-sans">
 
-            <div>
-              <h1 className="text-3xl md:text-4xl font-black text-slate-950 tracking-tight">
-                Voice Assistant
-              </h1>
-              <p className="text-lg text-slate-700 font-medium">
-                Hands-free conversational ordering (English & Hindi)
-              </p>
-            </div>
-          </div>
+    {/* ================= HEADER ================= */}
+    <header className="flex items-center justify-between px-6 md:px-10 py-5 border-b border-[#e7dccd] bg-[#fffaf3]">
 
-          <div className="flex items-center gap-3">
-            {/* Auto-listen toggle control */}
-            <button
-              type="button"
-              onClick={() => {
-                const next = !autoListenEnabled;
-                setAutoListenEnabled(next);
-                if (!next && voiceState === 'listening') {
-                  stopRecording();
-                }
-              }}
-              className={`inline-flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border-2 font-bold text-base transition-all shadow-sm focus:outline-none focus:ring-4 min-h-touch ${
-                autoListenEnabled
-                  ? 'bg-sky-100 border-sky-400 text-sky-950 hover:bg-sky-200 focus:ring-sky-400'
-                  : 'bg-slate-200 border-slate-400 text-slate-700 hover:bg-slate-300 focus:ring-slate-400'
-              }`}
-              title="Toggle automatic turn-based conversation listening"
-            >
-              <span className={`w-3.5 h-3.5 rounded-full ${autoListenEnabled ? 'bg-sky-500 animate-pulse' : 'bg-slate-400'}`} />
-              <span>{autoListenEnabled ? 'Auto-Listen: ON' : 'Auto-Listen: PAUSED'}</span>
-            </button>
+      <div className="flex items-center gap-5">
 
-            <button
-              type="button"
-              onClick={() => navigate('/order')}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-lg focus:outline-none focus:ring-4 focus:ring-emerald-600 min-h-touch shadow-md"
-            >
-              <Hand className="w-6 h-6" />
-              <span>Switch to Touch Menu</span>
-            </button>
-          </div>
-        </header>
-
-        {/* ISSUE 2 FIX: ALWAYS-VISIBLE LIVE CAPTION CONTAINER WITH ARIA-LIVE ACCESSIBILITY */}
-        <div 
-          className="my-6 p-6 md:p-8 rounded-3xl bg-slate-950 text-white border-4 border-sky-400 shadow-2xl space-y-4"
-          role="region"
-          aria-label="Live Spoken Captions"
-          aria-live={voiceState === 'speaking' ? 'assertive' : 'polite'}
-          aria-atomic="true"
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="flex h-14 w-14 items-center justify-center rounded-full border border-[#d8cbb9] bg-white text-[#211b17] shadow-sm transition hover:bg-[#f4eadc]"
         >
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div className="flex items-center gap-3 text-sky-400 text-sm font-black uppercase tracking-wider">
-              <Volume2 className="w-6 h-6 animate-pulse" />
-              <span>Live Kiosk Caption</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`px-3 py-1 rounded-full text-xs font-bold ${autoListenEnabled ? 'bg-sky-900/80 text-sky-200 border border-sky-500' : 'bg-slate-800 text-slate-400'}`}>
-                {autoListenEnabled ? '🔄 Auto-Turn Mode' : '✋ Tap Mode'}
-              </span>
-              <span className="px-3 py-1 rounded-full bg-slate-800 text-xs font-mono text-slate-300">
-                WCAG AAA Accessible
-              </span>
-            </div>
-          </div>
+          <span className="text-2xl">←</span>
+        </button>
 
-          <p className="text-2xl md:text-3xl font-extrabold leading-relaxed text-slate-50">
-            "{latestCaption}"
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-[#a66b3f]">
+            THE KIOSK KITCHEN
           </p>
 
-          {transcript && (
-            <div className="pt-2 border-t border-slate-800 flex items-center gap-2 text-slate-300 text-lg font-medium">
-              <MessageSquare className="w-5 h-5 text-sky-400 shrink-0" />
-              <span>You said: <strong className="text-white font-bold">"{transcript}"</strong></span>
-            </div>
-          )}
+          <h1 className="font-display text-4xl md:text-5xl font-bold text-[#211b17]">
+            Talk to Order
+          </h1>
+
+          <p className="mt-1 text-sm md:text-base text-[#806f60]">
+            Hands-free ordering in English, Hindi & Hinglish
+          </p>
         </div>
 
-        {/* CENTRAL VISUAL MIC STATE INDICATOR */}
-        <div className="flex flex-col items-center justify-center my-auto py-8 text-center space-y-8">
-          {/* Main State Machine Mic Ring */}
-          <div className="relative flex items-center justify-center">
-            {/* Listening Wave Pulse Outer Ring */}
-            {voiceState === 'listening' && (
-              <span className="absolute w-56 h-56 rounded-full bg-sky-400/30 animate-ping" aria-hidden="true" />
-            )}
+      </div>
 
-            {/* Speaking Pulse Outer Ring */}
-            {voiceState === 'speaking' && (
-              <span className="absolute w-56 h-56 rounded-full bg-emerald-400/30 animate-pulse" aria-hidden="true" />
-            )}
-
-            <button
-              type="button"
-              onClick={handleMicToggle}
-              className={`
-                relative w-44 h-44 rounded-full flex items-center justify-center
-                border-8 shadow-2xl transition-all duration-200 cursor-pointer
-                focus:outline-none focus:ring-8 focus:ring-offset-4 focus:ring-offset-slate-100
-                min-h-touch min-w-touch
-                ${
-                  voiceState === 'listening'
-                    ? 'bg-sky-600 border-sky-300 text-white scale-105 focus:ring-sky-400'
-                    : voiceState === 'processing'
-                    ? 'bg-amber-500 border-amber-300 text-white focus:ring-amber-400'
-                    : voiceState === 'speaking'
-                    ? 'bg-emerald-600 border-emerald-300 text-white focus:ring-emerald-400'
-                    : 'bg-slate-900 border-slate-950 text-white hover:bg-slate-800 focus:ring-slate-950'
-                }
-              `}
-              aria-label={
-                voiceState === 'listening'
-                  ? 'Stop listening and send order'
-                  : 'Start voice ordering'
-              }
-            >
-              {voiceState === 'processing' ? (
-                <RefreshCw className="w-20 h-20 animate-spin" />
-              ) : voiceState === 'speaking' ? (
-                <Volume2 className="w-20 h-20 animate-bounce" />
-              ) : (
-                <Mic className={`w-20 h-20 ${voiceState === 'listening' ? 'animate-pulse' : ''}`} strokeWidth={2.5} />
-              )}
-            </button>
-          </div>
-
-          {/* Plain Language State Banner */}
-          <div className="space-y-2">
-            <h2 className="text-3xl md:text-4xl font-black text-slate-950">
-              {voiceState === 'listening'
-                ? 'Listening... Speak Now'
-                : voiceState === 'processing'
-                ? 'Processing Your Order...'
-                : voiceState === 'speaking'
-                ? 'Kiosk Spoken Response...'
-                : 'Tap Mic or Start Speaking'}
-            </h2>
-            <p className="text-xl text-slate-700 font-semibold max-w-md mx-auto">
-              {voiceState === 'listening'
-                ? autoListenEnabled ? 'Auto-listening active: Mic reopens automatically after response.' : 'Tap mic button when finished speaking to send.'
-                : 'Supports English, Hindi, or Hinglish (e.g., "Ek Samosa and Cold Coffee").'}
-            </p>
-          </div>
-        </div>
-
-        {/* ISSUE 1 FIX: SYNTHESIZED TEXT FALLBACK INPUT */}
-        <form onSubmit={handleTextSubmit} className="pt-4 shrink-0 space-y-2">
-          {textInputStatus && (
-            <p className="text-sm font-bold text-sky-800 text-center animate-pulse">
-              {textInputStatus}
-            </p>
-          )}
-
-          <div className="flex items-center gap-3 p-2 rounded-2xl bg-white border-4 border-slate-300 shadow-md focus-within:border-slate-800">
-            <input
-              type="text"
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              placeholder="Or type order request (e.g., Veg Burger, Samosa)..."
-              className="flex-1 px-4 py-3 text-xl font-bold bg-transparent text-slate-950 placeholder-slate-400 focus:outline-none"
-              aria-label="Type your order request as an alternative to voice"
-            />
-            <button
-              type="submit"
-              disabled={!textInput.trim() || voiceState === 'processing'}
-              className="px-6 min-h-touch text-xl font-black bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white rounded-xl focus:outline-none focus:ring-4 focus:ring-slate-950 flex items-center gap-2"
-            >
-              <span>Submit</span>
-              <Send className="w-5 h-5" />
-            </button>
-          </div>
-        </form>
-      </section>
-
-      {/* BLINKIT STYLE BOTTOM CART */}
-{order?.items?.length > 0 && (
-  <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none flex justify-center pb-4">
-
-    {/* VIEW CART BUTTON */}
-    <button
-      type="button"
-      onClick={() => setShowMobileCart(!showMobileCart)}
-      className="
-        pointer-events-auto
-        w-[90%] max-w-md
-        p-4
-        bg-emerald-600
-        hover:bg-emerald-700
-        text-white
-        rounded-2xl
-        flex items-center justify-between
-        font-black text-lg
-        shadow-2xl
-        transition-all
-      "
-    >
       <div className="flex items-center gap-3">
-        <ShoppingBag className="w-7 h-7" />
 
-        <span>
-          View Cart • {order.items.length}{' '}
-          {order.items.length === 1 ? 'item' : 'items'}
-        </span>
-      </div>
+        {/* AUTO LISTEN */}
+        <button
+          type="button"
+          onClick={() => {
+            const next = !autoListenEnabled;
+            setAutoListenEnabled(next);
 
-      <div className="flex items-center gap-2">
-        <span>
-          ₹{order?.total || 0}
-        </span>
-
-        <ChevronUp
-          className={`w-7 h-7 transition-transform ${
-            showMobileCart ? 'rotate-180' : ''
-          }`}
-        />
-      </div>
-    </button>
-
-    {/* CART POPUP */}
-    {showMobileCart && (
-      <div
-        className="
-          pointer-events-auto
-          fixed
-          bottom-[90px]
-          left-1/2
-          -translate-x-1/2
-          w-[90%]
-          max-w-md
-          max-h-[60vh]
-          overflow-y-auto
-          bg-white
-          rounded-3xl
-          shadow-2xl
-          border-4
-          border-slate-300
-          z-50
-        "
-      >
-        <CartSummary
-          order={order}
-          onUpdateQuantity={async (item, newQuantity) => {
-            if (!sessionId || !item?.id) return;
-
-            setIsUpdatingOrder(true);
-
-            try {
-              let updatedOrder;
-
-              if (newQuantity <= 0) {
-                updatedOrder = await deleteOrderItem(
-                  sessionId,
-                  item.id
-                );
-              } else {
-                updatedOrder = await updateOrderItemQuantity(
-                  sessionId,
-                  item.id,
-                  newQuantity
-                );
-              }
-
-              setOrder(updatedOrder);
-            } catch (err) {
-              console.error(
-                '[VoiceScreen] Failed to update cart:',
-                err
-              );
-            } finally {
-              setIsUpdatingOrder(false);
+            if (!next && voiceState === 'listening') {
+              stopRecording();
             }
           }}
+          className={`hidden md:flex items-center gap-3 rounded-full border px-5 py-3 font-bold transition ${
+            autoListenEnabled
+              ? 'border-[#d9c5a9] bg-white text-[#29483d]'
+              : 'border-[#d9c5a9] bg-[#eee5d8] text-[#806f60]'
+          }`}
+        >
+          <span
+            className={`h-3 w-3 rounded-full ${
+              autoListenEnabled
+                ? 'bg-[#d7a94b] animate-pulse'
+                : 'bg-[#aaa]'
+            }`}
+          />
 
-          onReviewOrder={() => navigate('/order')}
-          isUpdating={isUpdatingOrder}
-        />
+          {autoListenEnabled
+            ? 'Auto-listen ON'
+            : 'Auto-listen OFF'}
+        </button>
+
+        {/* TOUCH MENU */}
+        <button
+          type="button"
+          onClick={() => navigate('/order')}
+          className="flex items-center gap-2 rounded-full bg-[#1f352d] px-5 py-3 font-bold text-white shadow-md transition hover:bg-[#29483d]"
+        >
+          <Hand className="h-5 w-5" />
+          <span className="hidden sm:inline">
+            Touch Menu
+          </span>
+        </button>
+
       </div>
+    </header>
+
+
+    {/* ================= MAIN CONTENT ================= */}
+    <section className="mx-auto flex max-w-[1500px] flex-col px-5 py-7 md:px-10">
+
+      {/* PREMIUM HERO */}
+      <div className="relative overflow-hidden rounded-[2rem] bg-[#1f352d] px-7 py-9 md:px-12 md:py-12 shadow-xl">
+
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#d7a94b] blur-3xl" />
+          <div className="absolute -bottom-20 left-1/3 h-64 w-64 rounded-full bg-[#a66b3f] blur-3xl" />
+        </div>
+
+        <div className="relative z-10">
+
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#bfa77f]/50 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-[#e9bd67]">
+            <Volume2 className="h-4 w-4" />
+            Voice Ordering
+          </div>
+
+          <h2 className="max-w-4xl font-display text-5xl font-bold leading-[0.95] text-white md:text-7xl">
+            Tell us what
+            <br />
+            you're craving.
+          </h2>
+
+          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#e8ddd0] md:text-xl">
+            Speak naturally and we'll take care of the rest.
+            Try saying:
+            <span className="font-bold text-[#e9bd67]">
+              {' '}“Add a Veg Burger and Cold Coffee”
+            </span>
+          </p>
+
+        </div>
+      </div>
+
+
+      {/* ================= VOICE AREA ================= */}
+      <div className="mt-7 grid gap-7 lg:grid-cols-[1.4fr_0.8fr]">
+
+        {/* LEFT - MICROPHONE */}
+        <div className="rounded-[2rem] border border-[#e5d9c8] bg-[#fffaf3] p-7 shadow-sm md:p-10">
+
+          <div className="mb-6 flex items-center justify-between">
+
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#a66b3f]">
+                YOUR VOICE
+              </p>
+
+              <h3 className="mt-1 font-display text-3xl font-bold text-[#211b17]">
+                Start speaking
+              </h3>
+            </div>
+
+            <div
+              className={`rounded-full px-4 py-2 text-xs font-bold ${
+                voiceState === 'listening'
+                  ? 'bg-[#e8f0eb] text-[#29483d]'
+                  : voiceState === 'processing'
+                  ? 'bg-[#f6ead0] text-[#9a6b21]'
+                  : voiceState === 'speaking'
+                  ? 'bg-[#e7f1ec] text-[#267052]'
+                  : 'bg-[#eee5d8] text-[#806f60]'
+              }`}
+            >
+              {voiceState === 'listening'
+                ? 'Listening'
+                : voiceState === 'processing'
+                ? 'Processing'
+                : voiceState === 'speaking'
+                ? 'Speaking'
+                : 'Ready'}
+            </div>
+
+          </div>
+
+
+          {/* MICROPHONE */}
+          <div className="flex flex-col items-center justify-center py-8">
+
+            <div className="relative flex items-center justify-center">
+
+              {voiceState === 'listening' && (
+                <>
+                  <span className="absolute h-64 w-64 animate-ping rounded-full bg-[#d7a94b]/20" />
+                  <span className="absolute h-52 w-52 rounded-full border border-[#d7a94b]/40" />
+                </>
+              )}
+
+              {voiceState === 'speaking' && (
+                <span className="absolute h-60 w-60 animate-pulse rounded-full bg-[#29483d]/15" />
+              )}
+
+              <button
+                type="button"
+                onClick={handleMicToggle}
+                className={`relative flex h-48 w-48 items-center justify-center rounded-full border-[10px] shadow-2xl transition-all duration-300 ${
+                  voiceState === 'listening'
+                    ? 'scale-105 border-[#e9bd67] bg-[#29483d] text-white'
+                    : voiceState === 'processing'
+                    ? 'border-[#e9bd67] bg-[#8c6335] text-white'
+                    : voiceState === 'speaking'
+                    ? 'border-[#8eb19f] bg-[#29483d] text-white'
+                    : 'border-[#d8cbb9] bg-[#1f352d] text-white hover:scale-105 hover:bg-[#29483d]'
+                }`}
+                aria-label={
+                  voiceState === 'listening'
+                    ? 'Stop listening and send order'
+                    : 'Start voice ordering'
+                }
+              >
+
+                {voiceState === 'processing' ? (
+                  <RefreshCw className="h-20 w-20 animate-spin" />
+                ) : voiceState === 'speaking' ? (
+                  <Volume2 className="h-20 w-20 animate-bounce" />
+                ) : (
+                  <Mic
+                    className={`h-20 w-20 ${
+                      voiceState === 'listening'
+                        ? 'animate-pulse'
+                        : ''
+                    }`}
+                    strokeWidth={2}
+                  />
+                )}
+
+              </button>
+
+            </div>
+
+
+            <h3 className="mt-10 text-center font-display text-3xl font-bold text-[#211b17] md:text-4xl">
+              {voiceState === 'listening'
+                ? 'Listening...'
+                : voiceState === 'processing'
+                ? 'Processing your order...'
+                : voiceState === 'speaking'
+                ? 'Kiosk is responding...'
+                : 'Tap the mic to order'}
+            </h3>
+
+            <p className="mt-3 max-w-xl text-center text-base leading-relaxed text-[#806f60] md:text-lg">
+              {voiceState === 'listening'
+                ? autoListenEnabled
+                  ? 'Speak naturally. Listening will continue automatically.'
+                  : 'Tap the microphone again when you finish speaking.'
+                : 'Try English, Hindi, or Hinglish. For example: “Ek Samosa and Cold Coffee”.'}
+            </p>
+
+          </div>
+
+        </div>
+
+
+        {/* RIGHT - LIVE CAPTION */}
+        <div className="flex flex-col gap-5">
+
+          <div
+            className="rounded-[2rem] bg-[#1f352d] p-7 text-white shadow-xl"
+            role="region"
+            aria-label="Live Spoken Captions"
+            aria-live={voiceState === 'speaking' ? 'assertive' : 'polite'}
+            aria-atomic="true"
+          >
+
+            <div className="flex items-center gap-3 border-b border-white/10 pb-5">
+
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#29483d]">
+                <Volume2 className="h-5 w-5 text-[#e9bd67]" />
+              </div>
+
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#e9bd67]">
+                  Live Caption
+                </p>
+
+                <p className="text-sm text-[#cfc5b9]">
+                  What the kiosk hears
+                </p>
+              </div>
+
+            </div>
+
+            <p className="mt-7 font-display text-2xl font-semibold leading-relaxed md:text-3xl">
+              "{latestCaption}"
+            </p>
+
+            {transcript && (
+              <div className="mt-6 rounded-2xl bg-white/10 p-4">
+
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#e9bd67]">
+                  <MessageSquare className="h-4 w-4" />
+                  You said
+                </div>
+
+                <p className="mt-2 text-base font-medium text-[#f5eee5]">
+                  "{transcript}"
+                </p>
+
+              </div>
+            )}
+
+          </div>
+
+
+          {/* QUICK INFO CARD */}
+          <div className="rounded-[2rem] border border-[#e5d9c8] bg-white p-6">
+
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#a66b3f]">
+              HOW IT WORKS
+            </p>
+
+            <div className="mt-5 space-y-4">
+
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eee5d8] font-bold text-[#a66b3f]">
+                  1
+                </div>
+                <p className="font-semibold text-[#4d4036]">
+                  Tap the microphone
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eee5d8] font-bold text-[#a66b3f]">
+                  2
+                </div>
+                <p className="font-semibold text-[#4d4036]">
+                  Tell us your order
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eee5d8] font-bold text-[#a66b3f]">
+                  3
+                </div>
+                <p className="font-semibold text-[#4d4036]">
+                  Review and confirm
+                </p>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      {/* ================= TEXT FALLBACK ================= */}
+      <form
+        onSubmit={handleTextSubmit}
+        className="mt-7 rounded-[2rem] border border-[#e5d9c8] bg-white p-5 shadow-sm"
+      >
+
+        {textInputStatus && (
+          <p className="mb-3 text-center text-sm font-bold text-[#a66b3f]">
+            {textInputStatus}
+          </p>
+        )}
+
+        <div className="flex flex-col gap-3 md:flex-row">
+
+          <input
+            type="text"
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            placeholder="Or type your order request..."
+            className="flex-1 rounded-2xl border border-[#d8cbb9] bg-[#fffaf3] px-5 py-4 text-lg font-semibold text-[#211b17] outline-none transition placeholder:text-[#a99b8d] focus:border-[#29483d]"
+            aria-label="Type your order request as an alternative to voice"
+          />
+
+          <button
+            type="submit"
+            disabled={!textInput.trim() || voiceState === 'processing'}
+            className="flex items-center justify-center gap-2 rounded-2xl bg-[#1f352d] px-7 py-4 font-bold text-white transition hover:bg-[#29483d] disabled:cursor-not-allowed disabled:bg-[#c8c0b7]"
+          >
+            <Send className="h-5 w-5" />
+            Submit Order
+          </button>
+
+        </div>
+
+      </form>
+
+    </section>
+
+
+    {/* ================= BLINKIT STYLE CART ================= */}
+    {order?.items?.length > 0 && (
+      <>
+
+        {/* CART POPUP */}
+        {showMobileCart && (
+          <div className="fixed bottom-[88px] left-1/2 z-50 max-h-[65vh] w-[92%] max-w-xl -translate-x-1/2 overflow-y-auto rounded-[1.75rem] border border-[#e5d9c8] bg-[#fffaf3] shadow-2xl">
+
+            <CartSummary
+              order={order}
+              onUpdateQuantity={async (item, newQuantity) => {
+                if (!sessionId || !item?.id) return;
+
+                setIsUpdatingOrder(true);
+
+                try {
+                  let updatedOrder;
+
+                  if (newQuantity <= 0) {
+                    updatedOrder = await deleteOrderItem(
+                      sessionId,
+                      item.id
+                    );
+                  } else {
+                    updatedOrder = await updateOrderItemQuantity(
+                      sessionId,
+                      item.id,
+                      newQuantity
+                    );
+                  }
+
+                  setOrder(updatedOrder);
+                } catch (err) {
+                  console.error(
+                    '[VoiceScreen] Failed to update cart:',
+                    err
+                  );
+                } finally {
+                  setIsUpdatingOrder(false);
+                }
+              }}
+              onReviewOrder={() => navigate('/order')}
+              isUpdating={isUpdatingOrder}
+            />
+
+          </div>
+        )}
+
+
+        {/* FLOATING CART BUTTON */}
+        <div className="fixed bottom-5 left-1/2 z-40 w-[92%] max-w-md -translate-x-1/2">
+
+          <button
+            type="button"
+            onClick={() => setShowMobileCart(!showMobileCart)}
+            className="flex w-full items-center justify-between rounded-[1.25rem] bg-[#1f352d] px-5 py-4 text-white shadow-[0_15px_40px_rgba(31,53,45,.3)] transition hover:bg-[#29483d] active:scale-[0.98]"
+          >
+
+            <div className="flex items-center gap-3">
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#29483d]">
+                <ShoppingBag className="h-5 w-5 text-[#e9bd67]" />
+              </div>
+
+              <div className="text-left">
+                <p className="font-bold">
+                  View your order
+                </p>
+
+                <p className="text-xs text-white/60">
+                  {order.items.length}{' '}
+                  {order.items.length === 1
+                    ? 'item'
+                    : 'items'}
+                </p>
+              </div>
+
+            </div>
+
+            <div className="flex items-center gap-3">
+
+              <span className="font-display text-xl font-bold text-[#e9bd67]">
+                ₹{order?.total || 0}
+              </span>
+
+              <ChevronUp
+                className={`h-5 w-5 transition-transform ${
+                  showMobileCart ? 'rotate-180' : ''
+                }`}
+              />
+
+            </div>
+
+          </button>
+
+        </div>
+
+      </>
     )}
-    </div>
-)}
-    </main>
-  
+
+  </main>
 );
 }
