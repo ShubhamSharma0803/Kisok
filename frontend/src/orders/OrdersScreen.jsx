@@ -408,48 +408,59 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
             </div>
           )}
         </section>
-
-        <aside className="hidden h-screen w-[390px] shrink-0 border-l border-[#e7dccd] bg-[#fffaf3] lg:block xl:w-[430px]">
-          <CartSummary
-            order={order}
-            onUpdateQuantity={handleUpdateQuantity}
-            onReviewOrder={handleReview}
-            isUpdating={isUpdatingOrder}
-          />
-        </aside>
       </div>
 
       {order?.items?.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none lg:hidden">
-          <button
-            type="button"
-            onClick={() => setShowMobileCart(!showMobileCart)}
-            className="pointer-events-auto mx-auto mb-4 flex w-[92%] max-w-lg items-center justify-between rounded-[1.35rem] border border-[#3b554b] bg-[#1f352d] px-5 py-3.5 font-bold text-white shadow-[0_16px_40px_rgba(31,53,45,.3)] transition active:scale-[0.98]"
-          >
-            <div className="flex items-center gap-3">
-              <ShoppingBag className="h-6 w-6 text-[#e9bd67]" />
-              <span className="text-sm md:text-base">
-                Your order · {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-display text-lg font-semibold text-[#e9bd67]">{formatPrice(order?.total || 0)}</span>
-              <ChevronUp className={`h-5 w-5 text-white/75 transition-transform ${showMobileCart ? 'rotate-180' : ''}`} />
-            </div>
-          </button>
+  <>
+    {/* Blinkit-style floating cart button */}
+    <div className="fixed inset-x-0 bottom-0 z-50 pointer-events-none">
+      <button
+        type="button"
+        onClick={() => setShowMobileCart(!showMobileCart)}
+        className="pointer-events-auto mx-auto mb-5 flex w-[92%] max-w-md items-center justify-between rounded-2xl border border-[#3b554b] bg-[#21382f] px-5 py-3.5 font-bold text-white shadow-[0_12px_35px_rgba(33,56,47,.30)] transition-all duration-200 hover:bg-[#172a22] active:scale-[0.98]"
+      >
+        <div className="flex items-center gap-3">
+          <ShoppingBag className="h-6 w-6 text-[#e8b65a]" />
 
-          {showMobileCart && (
-            <div className="pointer-events-auto fixed bottom-[78px] left-1/2 z-50 max-h-[48vh] w-[92%] max-w-xl -translate-x-1/2 overflow-y-auto rounded-[1.75rem] border border-[#e5d9c8] bg-[#fffaf3] shadow-2xl">
-              <CartSummary
-                order={order}
-                onUpdateQuantity={handleUpdateQuantity}
-                onReviewOrder={handleReview}
-                isUpdating={isUpdatingOrder}
-              />
-            </div>
-          )}
+          <div className="text-left">
+            <p className="text-sm md:text-base font-bold">
+              View your order
+            </p>
+            <p className="text-xs text-white/70">
+              {order.items.length}{' '}
+              {order.items.length === 1 ? 'item' : 'items'}
+            </p>
+          </div>
         </div>
-      )}
+
+        <div className="flex items-center gap-2">
+          <span className="font-display text-lg font-semibold text-[#e8b65a]">
+            {formatPrice(order?.total || 0)}
+          </span>
+
+          <ChevronUp
+            className={`h-5 w-5 text-white/75 transition-transform duration-300 ${
+              showMobileCart ? 'rotate-180' : ''
+            }`}
+          />
+        </div>
+      </button>
+    </div>
+
+    {/* Floating cart popup */}
+    {showMobileCart && (
+      <div className="pointer-events-auto fixed bottom-[78px] left-1/2 z-50 w-[92%] max-w-xl max-h-[70vh] -translate-x-1/2 overflow-hidden rounded-[1.75rem] border border-[#e5d9c8] bg-[#fffaf3] shadow-2xl">
+        <CartSummary
+          order={order}
+          onUpdateQuantity={handleUpdateQuantity}
+          onReviewOrder={handleReview}
+          isUpdating={isUpdatingOrder}
+        />
+      </div>
+    )}
+  </>
+)}
+  
 
       {modifierItem && (
         <div
