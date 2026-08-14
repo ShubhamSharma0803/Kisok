@@ -423,7 +423,7 @@ export default function VoiceScreen() {
     <section className="mx-auto flex max-w-[1500px] flex-col px-5 py-7 md:px-10">
 
       {/* PREMIUM HERO */}
-      <div className="relative overflow-hidden rounded-[2rem] bg-[#1f352d] px-7 py-9 md:px-12 md:py-12 shadow-xl">
+      <div className="relative overflow-hidden rounded-[2rem] bg-[#1f352d] px-7 py-8 md:px-10 md:py-10 shadow-[0_20px_50px_rgba(31,53,45,.18)]">
 
         <div className="absolute inset-0 opacity-20">
           <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#d7a94b] blur-3xl" />
@@ -437,13 +437,13 @@ export default function VoiceScreen() {
             Voice Ordering
           </div>
 
-          <h2 className="max-w-4xl font-display text-5xl font-bold leading-[0.95] text-white md:text-7xl">
+          <h2 className="max-w-4xl font-display text-4xl font-bold leading-[0.98] text-white md:text-6xl">
             Tell us what
             <br />
             you're craving.
           </h2>
 
-          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#e8ddd0] md:text-xl">
+          <p className="mt-5 max-w-2xl text-base leading-relaxed text-[#e8ddd0] md:text-lg">
             Speak naturally and we'll take care of the rest.
             Try saying:
             <span className="font-bold text-[#e9bd67]">
@@ -459,7 +459,7 @@ export default function VoiceScreen() {
       <div className="mt-7 grid gap-7 lg:grid-cols-[1.4fr_0.8fr]">
 
         {/* LEFT - MICROPHONE */}
-        <div className="rounded-[2rem] border border-[#e5d9c8] bg-[#fffaf3] p-7 shadow-sm md:p-10">
+        <div className="rounded-[2rem] border border-[#e5d9c8] bg-[#fffaf3] p-6 shadow-[0_15px_40px_rgba(80,60,40,.06)] md:p-8">
 
           <div className="mb-6 flex items-center justify-between">
 
@@ -515,7 +515,7 @@ export default function VoiceScreen() {
               <button
                 type="button"
                 onClick={handleMicToggle}
-                className={`relative flex h-48 w-48 items-center justify-center rounded-full border-[10px] shadow-2xl transition-all duration-300 ${
+                className={`relative flex h-40 w-40 md:h-44 md:w-44 items-center justify-center rounded-full border-[10px] shadow-2xl transition-all duration-300 ${
                   voiceState === 'listening'
                     ? 'scale-105 border-[#e9bd67] bg-[#29483d] text-white'
                     : voiceState === 'processing'
@@ -532,12 +532,12 @@ export default function VoiceScreen() {
               >
 
                 {voiceState === 'processing' ? (
-                  <RefreshCw className="h-20 w-20 animate-spin" />
+                  <RefreshCw className="h-16 w-16 animate-spin" />
                 ) : voiceState === 'speaking' ? (
-                  <Volume2 className="h-20 w-20 animate-bounce" />
+                  <Volume2 className="h-16 w-16 animate-bounce" />
                 ) : (
                   <Mic
-                    className={`h-20 w-20 ${
+  className={`h-16 w-16 ${
                       voiceState === 'listening'
                         ? 'animate-pulse'
                         : ''
@@ -578,7 +578,7 @@ export default function VoiceScreen() {
         <div className="flex flex-col gap-5">
 
           <div
-            className="rounded-[2rem] bg-[#1f352d] p-7 text-white shadow-xl"
+  className="rounded-[2rem] bg-[#1f352d] p-7 text-white shadow-[0_15px_40px_rgba(31,53,45,.18)]"
             role="region"
             aria-label="Live Spoken Captions"
             aria-live={voiceState === 'speaking' ? 'assertive' : 'polite'}
@@ -603,19 +603,19 @@ export default function VoiceScreen() {
 
             </div>
 
-            <p className="mt-7 font-display text-2xl font-semibold leading-relaxed md:text-3xl">
+            <p className="mt-7 font-display text-2xl font-semibold leading-[1.5] text-[#fffaf3] md:text-3xl">
               "{latestCaption}"
             </p>
 
             {transcript && (
-              <div className="mt-6 rounded-2xl bg-white/10 p-4">
+              <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.07] p-4">
 
                 <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#e9bd67]">
                   <MessageSquare className="h-4 w-4" />
                   You said
                 </div>
 
-                <p className="mt-2 text-base font-medium text-[#f5eee5]">
+                <p className="mt-2 text-base font-semibold leading-relaxed text-[#f5eee5]">
                   "{transcript}"
                 </p>
 
