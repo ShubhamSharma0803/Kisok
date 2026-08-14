@@ -18,7 +18,10 @@ export default function CartSummary({
   const total = order?.total || 0;
 
   return (
-    <aside className="flex h-full flex-col bg-[#fffaf3] p-5 md:p-6" aria-label="Order summary panel">
+    <aside
+  className="flex flex-col bg-[#fffdfa] p-5 md:p-6"
+  aria-label="Order summary panel"
+>
       <div className="shrink-0 rounded-[1.5rem] bg-[#1f352d] p-5 text-white shadow-[0_18px_36px_rgba(31,53,45,.2)]">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/12 text-[#e9bd67]">
@@ -41,7 +44,7 @@ export default function CartSummary({
         </div>
       </div>
 
-      <div className="premium-scroll mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+      <div className="mt-4 pr-1">
         {items.length === 0 ? (
           <div className="flex min-h-[18rem] flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-[#d9c8b6] bg-white p-6 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f3eadf] text-[#8b5e34]">

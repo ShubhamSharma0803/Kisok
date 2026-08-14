@@ -710,104 +710,91 @@ export default function VoiceScreen() {
 
 
     {/* ================= BLINKIT STYLE CART ================= */}
-    {order?.items?.length > 0 && (
-      <>
+{order?.items?.length > 0 && (
+  <>
+    {/* CART POPUP */}
+    {showMobileCart && (
+      <div className="fixed inset-x-0 bottom-[88px] z-[100] mx-auto w-[92%] max-w-xl">
+  <div className="max-h-[65vh] overflow-y-auto overscroll-contain touch-pan-y rounded-[1.75rem] border border-[#e5d9c8] bg-[#fffaf3] shadow-2xl">
+          <CartSummary
+            order={order}
+            onUpdateQuantity={async (item, newQuantity) => {
+              if (!sessionId || !item?.id) return;
 
-        {/* CART POPUP */}
-        {showMobileCart && (
-          <div className="fixed bottom-[88px] left-1/2 z-50 max-h-[65vh] w-[92%] max-w-xl -translate-x-1/2 overflow-y-auto rounded-[1.75rem] border border-[#e5d9c8] bg-[#fffaf3] shadow-2xl">
+              setIsUpdatingOrder(true);
 
-            <CartSummary
-              order={order}
-              onUpdateQuantity={async (item, newQuantity) => {
-                if (!sessionId || !item?.id) return;
+              try {
+                let updatedOrder;
 
-                setIsUpdatingOrder(true);
-
-                try {
-                  let updatedOrder;
-
-                  if (newQuantity <= 0) {
-                    updatedOrder = await deleteOrderItem(
-                      sessionId,
-                      item.id
-                    );
-                  } else {
-                    updatedOrder = await updateOrderItemQuantity(
-                      sessionId,
-                      item.id,
-                      newQuantity
-                    );
-                  }
-
-                  setOrder(updatedOrder);
-                } catch (err) {
-                  console.error(
-                    '[VoiceScreen] Failed to update cart:',
-                    err
+                if (newQuantity <= 0) {
+                  updatedOrder = await deleteOrderItem(
+                    sessionId,
+                    item.id
                   );
-                } finally {
-                  setIsUpdatingOrder(false);
+                } else {
+                  updatedOrder = await updateOrderItemQuantity(
+                    sessionId,
+                    item.id,
+                    newQuantity
+                  );
                 }
-              }}
-              onReviewOrder={() => navigate('/order')}
-              isUpdating={isUpdatingOrder}
-            />
 
+                setOrder(updatedOrder);
+              } catch (err) {
+                console.error(
+                  '[VoiceScreen] Failed to update cart:',
+                  err
+                );
+              } finally {
+                setIsUpdatingOrder(false);
+              }
+            }}
+            onReviewOrder={() => navigate('/order')}
+            isUpdating={isUpdatingOrder}
+          />
+        </div>
+      </div>
+    )}
+
+    {/* FLOATING CART BUTTON */}
+    <div className="fixed bottom-5 left-1/2 z-40 w-[92%] max-w-md -translate-x-1/2">
+      <button
+        type="button"
+        onClick={() => setShowMobileCart((prev) => !prev)}
+        className="flex w-full items-center justify-between rounded-[1.25rem] bg-[#1f352d] px-5 py-4 text-white shadow-[0_15px_40px_rgba(31,53,45,.3)] transition hover:bg-[#29483d] active:scale-[0.98]"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#29483d]">
+            <ShoppingBag className="h-5 w-5 text-[#e9bd67]" />
           </div>
-        )}
 
+          <div className="text-left">
+            <p className="font-bold">
+              View your order
+            </p>
 
-        {/* FLOATING CART BUTTON */}
-        <div className="fixed bottom-5 left-1/2 z-40 w-[92%] max-w-md -translate-x-1/2">
-
-          <button
-            type="button"
-            onClick={() => setShowMobileCart(!showMobileCart)}
-            className="flex w-full items-center justify-between rounded-[1.25rem] bg-[#1f352d] px-5 py-4 text-white shadow-[0_15px_40px_rgba(31,53,45,.3)] transition hover:bg-[#29483d] active:scale-[0.98]"
-          >
-
-            <div className="flex items-center gap-3">
-
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#29483d]">
-                <ShoppingBag className="h-5 w-5 text-[#e9bd67]" />
-              </div>
-
-              <div className="text-left">
-                <p className="font-bold">
-                  View your order
-                </p>
-
-                <p className="text-xs text-white/60">
-                  {order.items.length}{' '}
-                  {order.items.length === 1
-                    ? 'item'
-                    : 'items'}
-                </p>
-              </div>
-
-            </div>
-
-            <div className="flex items-center gap-3">
-
-              <span className="font-display text-xl font-bold text-[#e9bd67]">
-                ₹{order?.total || 0}
-              </span>
-
-              <ChevronUp
-                className={`h-5 w-5 transition-transform ${
-                  showMobileCart ? 'rotate-180' : ''
-                }`}
-              />
-
-            </div>
-
-          </button>
-
+            <p className="text-xs text-white/60">
+              {order.items.length}{' '}
+              {order.items.length === 1 ? 'item' : 'items'}
+            </p>
+          </div>
         </div>
 
-      </>
-    )}
+        <div className="flex items-center gap-3">
+          <span className="font-display text-xl font-bold text-[#e9bd67]">
+            ₹{order?.total || 0}
+          </span>
+
+          <ChevronUp
+            className={`h-5 w-5 transition-transform ${
+              showMobileCart ? 'rotate-180' : ''
+            }`}
+          />
+        </div>
+      </button>
+    </div>
+  </>
+)}
 
   </main>
 );

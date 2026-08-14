@@ -225,9 +225,9 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
   };
 
   return (
-    <main className="premium-shell min-h-screen overflow-hidden text-[#211b17]">
-      <div className="flex h-screen">
-        <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
+    <main className="premium-shell h-screen overflow-hidden text-[#211b17]">
+      <div className="flex h-full min-h-0">
+  <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <header className="shrink-0 border-b border-[#e7dccd] bg-[#fffaf3]/95 px-5 py-4 shadow-[0_10px_30px_rgba(58,39,24,.06)] backdrop-blur md:px-8">
             <div className="flex items-center justify-between gap-5">
               <div className="flex min-w-0 items-center gap-4">
@@ -326,7 +326,7 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
                 </div>
               </nav>
 
-              <div className="premium-scroll min-w-0 flex-1 overflow-y-auto bg-[#fbf6ef] px-5 pb-28 pt-5 md:px-8 md:pb-8 lg:px-10">
+              <div className="premium-scroll min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-[#fbf6ef] px-5 pb-28 pt-5 md:px-8 md:pb-8 lg:px-10">
                 <div className="relative mb-7 overflow-hidden rounded-[2rem] bg-[#1f352d] p-5 text-white shadow-[0_24px_55px_rgba(46,31,20,.16)] md:p-7">
                   <img
                     src={featuredItem?.image_url || FALLBACK_IMAGES[selectedCategory] || FALLBACK_IMAGES.all}
@@ -449,7 +449,7 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
 
     {/* Floating cart popup */}
     {showMobileCart && (
-      <div className="pointer-events-auto fixed bottom-[78px] left-1/2 z-50 w-[92%] max-w-xl max-h-[70vh] -translate-x-1/2 overflow-hidden rounded-[1.75rem] border border-[#e5d9c8] bg-[#fffaf3] shadow-2xl">
+        <div className="pointer-events-auto fixed bottom-[78px] left-1/2 z-50 w-[92%] max-w-xl max-h-[70vh] -translate-x-1/2 overflow-y-auto overscroll-contain rounded-[1.75rem] border border-[#e5d9c8] bg-[#fffaf3] shadow-2xl">
         <CartSummary
           order={order}
           onUpdateQuantity={handleUpdateQuantity}
