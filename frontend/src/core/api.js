@@ -149,6 +149,18 @@ export async function deleteOrderItem(sessionId, itemId) {
   }
 }
 
+export async function confirmOrder(sessionId) {
+  return request(`/sessions/${sessionId}/confirm-order`, {
+    method: 'POST',
+  });
+}
+
+export async function createPayment(sessionId) {
+  return request(`/sessions/${sessionId}/create-payment`, {
+    method: 'POST',
+  });
+}
+
 /**
  * Handoff & Orchestrator API Endpoints
  */

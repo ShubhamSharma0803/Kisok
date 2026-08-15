@@ -4,6 +4,8 @@ import { SessionProvider, useSession } from './core/SessionContext';
 import { HandoffProvider } from './core/HandoffProvider';
 import SessionStart from './core/SessionStart';
 import OrdersScreen from './orders/OrdersScreen';
+import ConfirmationScreen from './orders/ConfirmationScreen';
+import PaymentScreen from './orders/PaymentScreen';
 import VoiceScreen from './voice/VoiceScreen';
 import { Eye, ShoppingCart, ArrowLeft } from 'lucide-react';
 
@@ -56,44 +58,6 @@ function GazeActivePlaceholder() {
 }
 
 /**
- * Placeholder screen for Order Review (/review)
- */
-function OrderReviewPlaceholder() {
-  const navigate = useNavigate();
-
-  return (
-    <main className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-8 text-center space-y-6">
-      <div className="p-10 rounded-3xl bg-slate-900 border-4 border-emerald-500 max-w-xl w-full space-y-6 shadow-2xl">
-        <div className="w-20 h-20 mx-auto rounded-2xl bg-emerald-950 border-2 border-emerald-400 flex items-center justify-center text-emerald-400">
-          <ShoppingCart className="w-12 h-12 stroke-[2.5]" />
-        </div>
-        
-        <span className="inline-block px-4 py-1.5 rounded-full bg-emerald-950 text-emerald-300 text-sm font-bold uppercase tracking-wider">
-          Placeholder Route
-        </span>
-        
-        <h1 className="text-4xl font-black text-white">Order Review & Confirmation</h1>
-        
-        <p className="text-xl text-slate-300 font-medium">
-          Phase 1 complete — assistive payment guidance & Stripe test flow will connect here in Phase 2.
-        </p>
-
-        <div className="pt-4 flex flex-col sm:flex-row gap-4">
-          <button
-            type="button"
-            onClick={() => navigate('/order')}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-6 min-h-touch text-xl font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl focus:outline-none focus:ring-4 focus:ring-emerald-400 min-h-touch shadow-lg transition-all"
-          >
-            <ArrowLeft className="w-6 h-6 stroke-[3]" />
-            <span>Back to Menu</span>
-          </button>
-        </div>
-      </div>
-    </main>
-  );
-}
-
-/**
  * App Component with Outermost to Innermost Provider Architecture:
  * BrowserRouter -> SessionProvider -> HandoffProvider -> Routes
  */
@@ -107,7 +71,8 @@ export default function App() {
             <Route path="/order" element={<OrdersScreen />} />
             <Route path="/voice" element={<VoiceScreen />} />
             <Route path="/gaze" element={<GazeActivePlaceholder />} />
-            <Route path="/review" element={<OrderReviewPlaceholder />} />
+            <Route path="/review" element={<ConfirmationScreen />} />
+            <Route path="/payment" element={<PaymentScreen />} />
           </Routes>
         </HandoffProvider>
       </SessionProvider>
