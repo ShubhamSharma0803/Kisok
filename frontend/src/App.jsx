@@ -6,6 +6,7 @@ import SessionStart from './core/SessionStart';
 import OrdersScreen from './orders/OrdersScreen';
 import ConfirmationScreen from './orders/ConfirmationScreen';
 import PaymentScreen from './orders/PaymentScreen';
+import ThankYouScreen from './orders/ThankYouScreen';
 import VoiceScreen from './voice/VoiceScreen';
 import { Eye, ShoppingCart, ArrowLeft } from 'lucide-react';
 
@@ -73,6 +74,7 @@ export default function App() {
             <Route path="/gaze" element={<GazeActivePlaceholder />} />
             <Route path="/review" element={<ConfirmationScreen />} />
             <Route path="/payment" element={<PaymentScreen />} />
+            <Route path="/thank-you" element={<ThankYouScreen />} />
           </Routes>
         </HandoffProvider>
       </SessionProvider>

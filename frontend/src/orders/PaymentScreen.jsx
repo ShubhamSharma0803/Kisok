@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { useSession } from '../core/SessionContext';
 import { useSessionSocket } from '../core/useSessionSocket';
-import { createPayment } from '../core/api';
+import { createPayment, getOrder } from '../core/api';
 import {
   QrCode,
   CheckCircle2,
@@ -21,17 +22,21 @@ const formatPrice = (value) =>
   }).format(Number(value || 0));
 
 export default function PaymentScreen() {
+  const navigate = useNavigate();
   const { sessionId } = useSession();
   const { subscribe } = useSessionSocket(sessionId);
 
   const [paymentLinkUrl, setPaymentLinkUrl] = useState('');
   const [amountRupees, setAmountRupees] = useState(0);
+  const [itemCount, setItemCount] = useState(0);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isPaid, setIsPaid] = useState(false);
 
-  // 1. Initialize payment link on mount
+  const paidTimerRef = useRef(null);
+
+  // 1. Initialize payment link and fetch order details on mount
   const generatePaymentLink = useCallback(async () => {
     if (!sessionId) {
       setIsLoading(false);
@@ -42,13 +47,21 @@ export default function PaymentScreen() {
     setError(null);
 
     try {
-      const data = await createPayment(sessionId);
-      if (data?.payment_link_url) {
-        setPaymentLinkUrl(data.payment_link_url);
-        setAmountRupees(data.amount_rupees || 0);
+      const [paymentData, orderData] = await Promise.all([
+        createPayment(sessionId),
+        getOrder(sessionId).catch(() => null),
+      ]);
+
+      if (orderData?.items) {
+        setItemCount(orderData.items.length);
+      }
+
+      if (paymentData?.payment_link_url) {
+        setPaymentLinkUrl(paymentData.payment_link_url);
+        setAmountRupees(paymentData.amount_rupees || 0);
 
         try {
-          const qrUrl = await QRCode.toDataURL(data.payment_link_url, {
+          const qrUrl = await QRCode.toDataURL(paymentData.payment_link_url, {
             width: 300,
             margin: 2,
             color: {
@@ -75,19 +88,35 @@ export default function PaymentScreen() {
     generatePaymentLink();
   }, [generatePaymentLink]);
 
-  // 2. Subscribe to WebSocket "order_paid" event
+  // 2. Subscribe to WebSocket "order_paid" event and navigate to Thank You screen
   useEffect(() => {
     if (!sessionId) return;
 
     const unsubscribe = subscribe('order_paid', (payload) => {
       console.log('[PaymentScreen] order_paid event received:', payload);
       setIsPaid(true);
+
+      if (paidTimerRef.current) {
+        clearTimeout(paidTimerRef.current);
+      }
+
+      paidTimerRef.current = setTimeout(() => {
+        navigate('/thank-you', {
+          state: {
+            itemCount,
+            amountRupees,
+          },
+        });
+      }, 1500);
     });
 
     return () => {
       unsubscribe();
+      if (paidTimerRef.current) {
+        clearTimeout(paidTimerRef.current);
+      }
     };
-  }, [sessionId, subscribe]);
+  }, [sessionId, subscribe, navigate, itemCount, amountRupees]);
 
   return (
     <main className="min-h-screen bg-[#f5f0e8] text-[#211b17] font-sans">
