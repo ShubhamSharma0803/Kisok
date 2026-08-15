@@ -1,6 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel
-from core.enums import SessionMode, SessionStatus
+from core.enums import SessionMode, SessionStatus, OrderStatus
 from typing import List, Optional
 
 class SessionResponse(BaseModel):
@@ -39,6 +39,7 @@ class OrderItemResponse(BaseModel):
 class OrderResponse(BaseModel):
     id: str
     session_id: str
+    status: OrderStatus
     items: List[OrderItemResponse]
     total: float
     updated_at: datetime
