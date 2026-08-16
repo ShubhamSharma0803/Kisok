@@ -23,6 +23,7 @@ import {
   Utensils,
   Volume2,
   ChevronUp,
+  Accessibility,
 } from 'lucide-react';
 
 const FALLBACK_IMAGES = {

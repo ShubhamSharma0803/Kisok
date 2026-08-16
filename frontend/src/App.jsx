@@ -4,10 +4,12 @@ import { SessionProvider, useSession } from './core/SessionContext';
 import { HandoffProvider } from './core/HandoffProvider';
 import SessionStart from './core/SessionStart';
 import OrdersScreen from './orders/OrdersScreen';
+import BigIconScreen from './orders/BigIconScreen';
 import ConfirmationScreen from './orders/ConfirmationScreen';
 import PaymentScreen from './orders/PaymentScreen';
 import ThankYouScreen from './orders/ThankYouScreen';
 import VoiceScreen from './voice/VoiceScreen';
+import LargeUIScreen from './orders/LargeUIScreen';
 import { Eye, ShoppingCart, ArrowLeft } from 'lucide-react';
 
 /**
@@ -72,6 +74,7 @@ export default function App() {
             <Route path="/order" element={<OrdersScreen />} />
             <Route path="/voice" element={<VoiceScreen />} />
             <Route path="/gaze" element={<GazeActivePlaceholder />} />
+            <Route path="/large-ui" element={<LargeUIScreen />} />
             <Route path="/review" element={<ConfirmationScreen />} />
             <Route path="/payment" element={<PaymentScreen />} />
             <Route path="/thank-you" element={<ThankYouScreen />} />
