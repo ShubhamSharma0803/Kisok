@@ -4,7 +4,7 @@ from sqlalchemy import Column, String, DateTime, Integer, Float, ForeignKey ,Enu
 from sqlalchemy.orm import relationship
 from core.database import Base
 from core.enums import SessionMode, SessionStatus
-from core.enums import HandoffReason
+from core.enums import HandoffReason, OrderStatus
 
 def utcnow():
     return datetime.now(timezone.utc)
@@ -35,6 +35,9 @@ class Order(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id = Column(String, ForeignKey("sessions.id"), nullable=False, unique=True)
+    status = Column(SQLEnum(OrderStatus), default=OrderStatus.pending, nullable=False)
+    payment_link_id = Column(String, nullable=True)
+    payment_link_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 

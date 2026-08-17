@@ -10,6 +10,11 @@ class SessionStatus(str, enum.Enum):
     handed_off = "handed_off"
     completed = "completed"
 
+class OrderStatus(str, enum.Enum):
+    pending = "pending"
+    confirmed = "confirmed"
+    paid = "paid"
+
 class HandoffReason(str, enum.Enum):
     manual = "manual"
     automatic = "automatic"

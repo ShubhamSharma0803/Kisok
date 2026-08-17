@@ -1,7 +1,16 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from './SessionContext';
-import { Mic, Hand, Eye, RefreshCw, AlertCircle, Volume2, Sparkles } from 'lucide-react';
+import {
+  Mic,
+  Hand,
+  Eye,
+  Accessibility,
+  RefreshCw,
+  AlertCircle,
+  Volume2,
+  Sparkles,
+} from 'lucide-react';
 
 import { triggerScreenNarration } from './api';
 
@@ -47,6 +56,18 @@ iconBg: 'bg-[#f3eadf] text-[#8b5e34] border border-[#e3d4c2]',
 badgeBg: 'bg-[#f3eee8] text-[#76563e] border border-[#dfd1c2]',
 actionText: 'text-[#8b5e34] group-hover:text-[#6f4327]',
     description: 'Look at items on screen for 1 to 2 seconds to select them without touching.',
+  },
+      {
+    id: 'large_ui',
+    route: '/large-ui',
+    title: 'Easy View',
+    icon: Sparkles,
+    badgeText: 'Large Icon Mode',
+    borderColor: 'border-[#e3d7c8] hover:border-[#cdbca7] focus:ring-[#b66b3c]/20',
+    iconBg: 'bg-[#f3eadf] text-[#8b5e34] border border-[#e3d4c2]',
+    badgeBg: 'bg-[#edf4f1] text-[#315448] border border-[#cbded6]',
+    actionText: 'text-[#8b5e34] group-hover:text-[#6f4327]',
+    description: 'Extra-large text and icons for an easier, clearer ordering experience.',
   },
 ];
 
@@ -297,7 +318,7 @@ export default function SessionStart({ onNavigate }) {
       </header>
 
       {/* Main Content Area */}
-      <div className="max-w-6xl mx-auto w-full my-auto py-8">
+      <div className="max-w-[1500px] mx-auto w-full my-auto py-8">
         {/* Loading State */}
         {isLoadingSession && (
           <div className="flex flex-col items-center justify-center p-12 space-y-4 text-center">
@@ -335,7 +356,7 @@ export default function SessionStart({ onNavigate }) {
 
         {/* Mode Cards Grid (shown when session is ready) */}
         {!isLoadingSession && !sessionError && (
-          <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-7">
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 lg:gap-7">
             {MODE_CARDS.map((card) => {
               const IconComponent = card.icon;
               return (

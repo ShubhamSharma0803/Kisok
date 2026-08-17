@@ -35,6 +35,7 @@ app.include_router(orders_router)
 app.include_router(handoff_router)
 app.include_router(voice_router)
 app.include_router(narrate_router)
+app.include_router(webhooks_router)
 
 @app.get("/health")
 def health():
