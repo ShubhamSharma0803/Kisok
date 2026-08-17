@@ -151,13 +151,28 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
     setNarrationContext({ category: selectedCategory, count: filteredMenuItems.length });
   }, [selectedCategory, filteredMenuItems.length]);
 
-  const narratedRef = useRef(false);
-  useEffect(() => {
-    if (sessionId && sessionMode === 'voice_first' && !isLoading && !narratedRef.current) {
-      narratedRef.current = true;
-      triggerScreenNarration(sessionId, 'menu', { category: selectedCategory, count: filteredMenuItems.length });
-    }
-  }, [sessionId, sessionMode, isLoading, selectedCategory, filteredMenuItems.length]);
+  const lastNarratedHash = useRef('');
+
+useEffect(() => {
+  if (!sessionId || isLoading) return;
+
+  // Only narrate when the screen structure actually changes (category or item count)
+  const stateHash = `menu:${selectedCategory}:${filteredMenuItems.length}`;
+  if (lastNarratedHash.current === stateHash) return;
+  lastNarratedHash.current = stateHash;
+
+  // 300ms delay lets React finish paint so count is accurate
+  const t = setTimeout(() => {
+    triggerScreenNarration(sessionId, 'menu', {
+      category: selectedCategory === 'all' ? 'full' : selectedCategory,
+      count: filteredMenuItems.length,
+      total: order?.total || 0,
+      item_count: order?.items?.length || 0,
+    });
+  }, 300);
+
+  return () => clearTimeout(t);
+}, [sessionId, isLoading, selectedCategory, filteredMenuItems.length]);
 
   const handleAddItemClick = (item) => {
     if (item.available_modifiers) {
