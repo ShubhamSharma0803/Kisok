@@ -4,7 +4,7 @@ const OrderSplashAnimation = ({ onComplete }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       onComplete?.();
-    }, 3200);
+    }, 5000);
 
     return () => clearTimeout(timer);
   }, [onComplete]);
