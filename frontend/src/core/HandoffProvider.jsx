@@ -125,7 +125,7 @@ export const HandoffProvider = ({ children }) => {
 
           {/* Persistent Always-Visible "Get Help" Button (Fixed Bottom-Right Corner) */}
           {sessionId && (
-            <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+            <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2 md:bottom-6 md:right-6">
               {/* Plain-language error retry alert banner */}
               {handoffError && (
                 <div 
@@ -138,22 +138,66 @@ export const HandoffProvider = ({ children }) => {
               )}
 
               <button
-                type="button"
-                onClick={triggerHelp}
-                disabled={isSubmittingHandoff}
-                className={`
-                  flex items-center gap-3 px-6 py-4 rounded-full
-                  ${handoffError ? 'bg-red-600 hover:bg-red-700 text-white border-red-950' : 'bg-amber-400 hover:bg-amber-300 text-slate-950 border-slate-950'}
-                  font-black text-xl md:text-2xl shadow-2xl
-                  border-4 cursor-pointer active:scale-[0.98]
-                  focus:outline-none focus:ring-4 focus:ring-amber-400 focus:ring-offset-4 focus:ring-offset-slate-950
-                  min-h-touch min-w-touch transition-all duration-150 disabled:opacity-50
-                `}
-                aria-label="Get help from a human team member"
-              >
-                <LifeBuoy className="w-8 h-8 stroke-[2.5] animate-bounce" />
-                <span>{isSubmittingHandoff ? 'Calling Help...' : handoffError ? 'Retry Get Help' : 'Get Help'}</span>
-              </button>
+  type="button"
+  onClick={triggerHelp}
+  disabled={isSubmittingHandoff}
+  className={`
+    group relative flex items-center gap-3
+    rounded-full px-5 py-3
+    border
+    ${handoffError
+      ? 'border-red-400/70 bg-red-950 text-red-100 hover:bg-red-900'
+      : 'border-[#d8b15a]/70 bg-[#1f352d] text-[#f7efe5] hover:bg-[#28483d]'
+    }
+    shadow-[0_10px_30px_rgba(31,53,45,0.22)]
+    hover:shadow-[0_14px_38px_rgba(31,53,45,0.32)]
+    active:scale-[0.97]
+    focus:outline-none
+    focus:ring-4
+    focus:ring-[#d8b15a]/25
+    transition-all
+    duration-300
+    disabled:cursor-not-allowed
+    disabled:opacity-60
+  `}
+  aria-label="Get help from a human team member"
+>
+  <span
+    className={`
+      flex h-10 w-10 items-center justify-center
+      rounded-full
+      border
+      ${handoffError
+        ? 'border-red-300/40 bg-red-800/50'
+        : 'border-[#d8b15a]/50 bg-[#d8b15a]/10'
+      }
+      transition-transform
+      duration-300
+      group-hover:scale-105
+    `}
+  >
+    <LifeBuoy
+      className={`
+        h-5 w-5
+        ${handoffError ? 'text-red-200' : 'text-[#e9bd67]'}
+      `}
+    />
+  </span>
+
+  <span className="pr-1 text-sm font-bold tracking-wide md:text-base">
+    {isSubmittingHandoff
+      ? 'Calling Help...'
+      : handoffError
+        ? 'Retry Help'
+        : 'Get Help'}
+  </span>
+
+  {!handoffError && (
+    <span className="ml-1 text-lg text-[#e9bd67] transition-transform duration-300 group-hover:translate-x-1">
+      →
+    </span>
+  )}
+</button>
             </div>
           )}
         </>
