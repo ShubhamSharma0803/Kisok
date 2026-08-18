@@ -13,7 +13,7 @@ from orders.router import router as orders_router
 from core.handoff_router import router as handoff_router
 from voice.router import router as voice_router
 from vision.router import router as narrate_router
-
+from core.webhooks_router import router as webhooks_router
 # Ensure DB tables exist on startup
 Base.metadata.create_all(bind=engine)
 
