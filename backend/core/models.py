@@ -1,20 +1,32 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, Integer, Float, ForeignKey ,Enum as SQLEnum
+from sqlalchemy import Column, String, DateTime, Integer, Float, ForeignKey, JSON, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from core.database import Base
-from core.enums import SessionMode, SessionStatus
+from core.enums import UIEmphasis, SessionStatus
 from core.enums import HandoffReason, OrderStatus
 
 def utcnow():
     return datetime.now(timezone.utc)
+
+DEFAULT_ACTIVE_CHANNELS = {
+    "voice_input": True,
+    "voice_output": True,
+    "touch_input": True,
+    "gaze_input": False,
+    "captions": True,
+}
 
 class Session(Base):
     __tablename__ = "sessions"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     status = Column(SQLEnum(SessionStatus), default=SessionStatus.active, nullable=False)
-    current_mode = Column(SQLEnum(SessionMode), default=SessionMode.voice_first, nullable=False)
+    active_channels = Column(JSON, default=lambda: dict(DEFAULT_ACTIVE_CHANNELS), nullable=False)
+    ui_emphasis = Column(SQLEnum(UIEmphasis), default=UIEmphasis.standard_touch, nullable=False)
+    detection_confidence = Column(Float, default=0.0, nullable=False)
+    detection_source = Column(String, default="not_yet_implemented", nullable=False)
+    detection_set_at = Column(DateTime, default=utcnow, nullable=False)
     created_at = Column(DateTime, default=utcnow)
     last_active_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 

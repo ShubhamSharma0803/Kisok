@@ -29,7 +29,11 @@ def get_orchestrator_state(session_id: str, db: DBSession = Depends(get_db)):
     return {
         "failed_tap_count": _failed_tap_counts.get(session_id, 0),
         "idle_seconds": get_idle_seconds(session),
-        "current_mode": session.current_mode,
+        "ui_emphasis": session.ui_emphasis,
+        "active_channels": session.active_channels,
+        "detection_confidence": session.detection_confidence,
+        "detection_source": session.detection_source,
+        "detection_set_at": session.detection_set_at,
         "status": session.status,
     }
 
@@ -69,13 +73,17 @@ async def resolve_handoff(session_id: str, db: DBSession = Depends(get_db)):
     await manager.send_event(
         session_id,
         EventType.mode_change,
-        {"mode": session.current_mode, "status": session.status},
+        {"ui_emphasis": session.ui_emphasis, "status": session.status},
     )
 
     return {
         "id": session.id,
         "status": session.status,
-        "current_mode": session.current_mode,
+        "ui_emphasis": session.ui_emphasis,
+        "active_channels": session.active_channels,
+        "detection_confidence": session.detection_confidence,
+        "detection_source": session.detection_source,
+        "detection_set_at": session.detection_set_at,
         "failed_tap_count": 0,
         "idle_seconds": get_idle_seconds(session),
     }

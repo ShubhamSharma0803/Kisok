@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 
 from vision.narration_engine import narrate
+from core.events import EventType
 
 # Safe optional import of WS manager
 try:
@@ -48,17 +49,16 @@ async def narrate_endpoint(session_id: str, req: NarrateRequest):
         raise HTTPException(status_code=500, detail=f"Narration failed: {str(e)}")
 
     # Proactive WebSocket push (best-effort)
-    if req.push_ws and ws_manager and hasattr(ws_manager, "broadcast_to_session"):
+    if req.push_ws and ws_manager:
         try:
-            await ws_manager.broadcast_to_session(
+            await ws_manager.send_event(
                 session_id,
+                EventType.screen_narration,
                 {
-                    "type": "narration_ready",
-                    "payload": {
-                        "narration": result["narration"],
-                        "tts_audio_b64": result["tts_audio_b64"],
-                        "source": result["source"],
-                    },
+                    "text": result.get("narration", ""),
+                    "tts_audio_b64": result.get("tts_audio_b64", ""),
+                    "source": result.get("source", ""),
+                    "highlight_target": req.context.get("highlight_target", None)
                 },
             )
         except Exception as e:
@@ -88,10 +88,16 @@ async def _push_task(session_id: str, req: NarrateRequest):
             prefer_vision=req.prefer_vision,
             lang=req.context.get("lang", "en"),
         )
-        if ws_manager and hasattr(ws_manager, "broadcast_to_session"):
-            await ws_manager.broadcast_to_session(
+        if ws_manager:
+            await ws_manager.send_event(
                 session_id,
-                {"type": "narration_ready", "payload": result},
+                EventType.screen_narration,
+                {
+                    "text": result.get("narration", ""),
+                    "tts_audio_b64": result.get("tts_audio_b64", ""),
+                    "source": result.get("source", ""),
+                    "highlight_target": req.context.get("highlight_target", None)
+                },
             )
     except Exception as e:
         print(f"[narrate_push] Failed for {session_id}: {e}")

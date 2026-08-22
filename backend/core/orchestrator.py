@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session as DBSession
 from core.models import Session, HandoffLog
-from core.enums import SessionMode, SessionStatus, HandoffReason
+from core.enums import UIEmphasis, SessionStatus, HandoffReason
 from core.ws_manager import manager
 from core.events import EventType
 
@@ -32,13 +32,13 @@ async def evaluate_rules(db: DBSession, session: Session):
     failed_taps = _failed_tap_counts.get(session.id, 0)
 
     if idle_seconds > IDLE_THRESHOLD_SECONDS and failed_taps >= FAILED_TAP_THRESHOLD:
-        if session.current_mode != SessionMode.simplified_ui:
-            session.current_mode = SessionMode.simplified_ui
+        if session.ui_emphasis != UIEmphasis.big_icons:
+            session.ui_emphasis = UIEmphasis.big_icons
             db.commit()
             await manager.send_event(
                 session.id,
                 EventType.mode_change,
-                {"mode": SessionMode.simplified_ui.value, "reason": "idle_and_failed_taps"},
+                {"ui_emphasis": UIEmphasis.big_icons.value, "reason": "idle_and_failed_taps"},
             )
 
         log = HandoffLog(

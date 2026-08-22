@@ -1,12 +1,16 @@
 from datetime import datetime
 from pydantic import BaseModel
-from core.enums import SessionMode, SessionStatus, OrderStatus
-from typing import List, Optional
+from core.enums import UIEmphasis, SessionStatus, OrderStatus
+from typing import List, Optional, Dict, Any
 
 class SessionResponse(BaseModel):
     id: str
     status: SessionStatus
-    current_mode: SessionMode
+    active_channels: Dict[str, bool]
+    ui_emphasis: UIEmphasis
+    detection_confidence: float
+    detection_source: str
+    detection_set_at: datetime
     created_at: datetime
     last_active_at: datetime
 

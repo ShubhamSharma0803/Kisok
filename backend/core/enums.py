@@ -1,8 +1,8 @@
 import enum
 
-class SessionMode(str, enum.Enum):
-    voice_first = "voice_first"
-    simplified_ui = "simplified_ui"
+class UIEmphasis(str, enum.Enum):
+    standard_touch = "standard_touch"
+    big_icons = "big_icons"
     gaze_active = "gaze_active"
 
 class SessionStatus(str, enum.Enum):

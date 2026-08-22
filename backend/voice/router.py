@@ -326,7 +326,13 @@ async def process_voice(
                 await manager.send_event(
                     session_id,
                     EventType.screen_narration,
-                    {"request_repeat": True},
+                    {
+                        "request_repeat": True,
+                        "text": "",
+                        "tts_audio_b64": "",
+                        "source": "voice_request",
+                        "highlight_target": None
+                    },
                 )
                 reply = ""
                 skip_tts = True
@@ -393,69 +399,3 @@ async def reset_voice_order(
     return {"status": "reset", "message": "Order cleared."}
 
 
-# ---- Narration Endpoint ----
-
-from pydantic import BaseModel
-
-class NarrationRequest(BaseModel):
-    screen: str
-    context: Optional[dict] = None
-
-narrate_router = APIRouter(prefix="/sessions/{session_id}", tags=["narration"])
-
-@narrate_router.post("/narrate")
-async def narrate_screen(
-    session_id: str,
-    req: NarrationRequest,
-    db: DBSession = Depends(get_db),
-):
-    """
-    Generates a spoken narration for the specified screen state,
-    emits a screen_narration WebSocket event, and returns TTS audio.
-    """
-    _get_session_or_404(db, session_id)
-    screen = req.screen.strip().lower()
-    ctx = req.context or {}
-
-    if screen == "start":
-        text = "Welcome. Say talk to order, tap to order, or look to order, to begin."
-    elif screen == "menu":
-        category = ctx.get("category")
-        count = ctx.get("count")
-        if category and count is not None:
-            text = f"You are viewing the {category} category with {count} items available. Say what you would like to order."
-        elif category:
-            text = f"You are viewing the {category} category on the menu. Say what you would like to order."
-        else:
-            text = "You are on the menu screen. We have Burgers, Beverages, Desserts, and Sides available. Say what you would like to order."
-    elif screen == "order":
-        order = _get_or_create_order(db, session_id)
-        if order.items:
-            cart_for_tts = _cart_from_order(order)
-            summary, total = tts.build_confirmation_text(cart_for_tts, MENU_LOOKUP, lang="en")
-            text = summary
-        else:
-            text = "Your order is currently empty. Head back to the menu to add items."
-    elif screen == "handoff":
-        text = "A team member has been notified and will be at your kiosk shortly to assist you. Your order choices are safely saved."
-    else:
-        text = f"You are currently on the {screen} screen."
-
-    tts_audio = tts.speak(text, lang="en")
-    import base64
-    tts_b64 = base64.b64encode(tts_audio).decode()
-
-    event_payload = {
-        "screen": screen,
-        "text": text,
-        "tts_audio_b64": tts_b64,
-    }
-
-    await manager.send_event(session_id, EventType.screen_narration, event_payload)
-
-    return {
-        "status": "ok",
-        "screen": screen,
-        "text": text,
-        "tts_audio_b64": tts_b64,
-    }
