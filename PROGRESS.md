@@ -1,5 +1,46 @@
 ## Verified as of 2026-08-23
 
+### Phase B — Step 6: True Hybrid Gaze-Tracking Engine & Full Hands-Free Dwell UX Status: COMPLETE ✅
+
+**Problem / Context**: The legacy Gaze Mode suffered from high-friction 9-point calibration, slow activation delay, stagnant cursor movement, top-left pinning, and tiny button targets.
+
+**Key Architecture & Implementations**:
+1. **True Hybrid Gaze-Tracking Fusion Engine (`useGazeTracking.js`)**:
+   - **Engine**: Integrated native Google MediaPipe FaceMesh (`@mediapipe/face_mesh`) with direct `navigator.mediaDevices.getUserMedia` video streaming.
+   - **Coarse Macro Steering**: Tracks Nose Tip (Landmark 1) with mirror-inversion (`headDeltaX = -(noseX - baselineNoseX)`).
+   - **Fine Micro Steering**: Tracks Left Iris (Landmark 468) relative to eye canthi (Landmarks 33/133/159/145).
+   - **Fusion Formula**:
+     $$\text{totalOffsetX} = (\Delta\text{Head}_X \times 3.5) + (\Delta\text{Iris}_X \times 1.8)$$
+     $$\text{totalOffsetY} = (\Delta\text{Head}_Y \times 4.2) + (\Delta\text{Iris}_Y \times 2.2)$$
+     $$\text{targetX} = \frac{\text{screenW}}{2} + (\text{totalOffsetX} \times \text{screenW}), \quad \text{targetY} = \frac{\text{screenH}}{2} + (\text{totalOffsetY} \times \text{screenH})$$
+   - **Auto-Centering Baseline**: Automatically locks resting neutral head & iris baseline over first 8–10 frames, preventing top-left pinning. Added "Center Gaze" header dwell button and keyboard shortcut (<kbd>Space</kbd> / <kbd>C</kbd>).
+   - **Jitter Suppression & Zero Lag**: Snappy LERP smoothing ($\alpha = 0.35$) with a 3.0px deadband threshold to absorb micro-saccadic eye tremor during card dwelling.
+
+2. **Full Hands-Free Dwell Selection Engine (`DwellSelect.jsx`)**:
+   - **Ultra-Fast $O(1)$ Hit-Testing**: Evaluates gaze coordinates using `document.elementFromPoint(gaze.x, gaze.y)?.closest('[data-dwell-id]')`, automatically respecting scrolling, modal drawers, and z-indexes.
+   - **Visual Dwell Overlay**: `<DwellOverlay />` renders a green circular/conic border fill with live percentage badge on top of cards.
+   - **Accidental Trigger Prevention**: 600ms global cooldown after successful selection + 250ms slip grace period.
+   - **High-Z Floating Reticle**: `<GazeCursor />` styled at `z-[99999]` with `pointer-events-none`.
+
+3. **1:1 Touch Design Parity & Expanded Hitboxes (`GazeScreen.jsx`)**:
+   - **Full Card Dwell Targets**: Entire `<article>` food card (~350x400px) is the dwell target (`data-dwell-id="item:id"`).
+   - **Hands-Free Scrolling**: Docked floating Scroll Up (▲) and Scroll Down (▼) dwell buttons.
+   - **Dwell Cart Drawer**: Gaze-accessible `[+]` and `[-]` / Trash quantity controls, "Proceed to Review", and "Close" buttons.
+   - **Instant Mode Mounting**: Eliminated blocking permission/loading gates (<50ms transition).
+
+4. **End-to-End Hands-Free Checkout Flow (`ConfirmationScreen.jsx`)**:
+   - Gaze tracking and dwell triggers integrated into Confirmation Screen for "Confirm Order" and "Back to Menu".
+
+5. **Persistent Mode Override Dropdown (`ModeOverride.jsx`)**:
+   - Floating pill in top-right header across menu screens allowing instant switching between Touch, Gaze, and Big Icons layouts.
+
+6. **Cloud & Container Deployment Resiliency (`server.py`, `requirements.txt`, `Dockerfile`)**:
+   - Mounted `/ws/detect` on unified FastAPI application (`backend/main.py`).
+   - Added `opencv-python-headless`, `mediapipe`, and `numpy` to `backend/requirements.txt`.
+   - Wrapped `server.py` in fail-safe fallback so headless cloud servers (Railway/Docker) boot up cleanly without hardware camera crashes.
+
+---
+
 ### Step 8 — Reliability Layer (Kiosk Vision AI) Status: COMPLETE ✅
 
 - **STT Failure Handling (`backend/voice/stt.py`, `backend/voice/router.py`)**:
@@ -30,6 +71,20 @@
   4. WS drop: Full HTTP touch ordering flow (menu fetch -> add item -> update qty -> confirm order -> create payment) verified 100% working while WS is closed.
   5. Happy path: Normal voice ordering turn verified with intact transcript, order update, and TTS.
 - ✅ Frontend production build: `npm run build` completed with 0 errors.
+
+---
+
+4. **End-to-End Hands-Free Checkout Flow (`ConfirmationScreen.jsx`)**:
+   - Gaze tracking and dwell triggers integrated into Confirmation Screen for "Confirm Order" and "Back to Menu".
+
+5. **Persistent Mode Override Dropdown (`ModeOverride.jsx`)**:
+   - Floating pill in top-right header across menu screens allowing instant switching between Touch, Gaze, and Big Icons layouts.
+
+6. **Cloud & Container Deployment Resiliency (`server.py`, `requirements.txt`, `Dockerfile`)**:
+   - Mounted `/ws/detect` on unified FastAPI application (`backend/main.py`).
+   - Added `opencv-python-headless`, `mediapipe`, and `numpy` to `backend/requirements.txt`.
+   - Wrapped `server.py` in fail-safe fallback so headless cloud servers (Railway/Docker) boot up cleanly without hardware camera crashes.
+>>>>>>> 7dad646 (docs: update PROGRESS.md with hybrid gaze engine, dwell UX, and mode override verification)
 
 ---
 
