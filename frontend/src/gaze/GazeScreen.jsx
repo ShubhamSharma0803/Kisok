@@ -85,9 +85,17 @@ function MenuItemImage({ src, alt, category }) {
 
 export default function GazeScreen() {
   const navigate = useNavigate();
-  const { sessionId, initSession } = useSession();
+  const { sessionId, initSession, uiEmphasis, setUiEmphasis } = useSession();
   const { reportFailedTap } = useHandoff();
   const { subscribe } = useSessionSocket(sessionId);
+
+  // Ensure global session mode is registered as gaze_active
+  useEffect(() => {
+    if (uiEmphasis !== 'gaze_active') {
+      setUiEmphasis('gaze_active');
+    }
+    sessionStorage.setItem('kiosk_mode', 'gaze');
+  }, [uiEmphasis, setUiEmphasis]);
 
   // Immediate mode mounting without transition delay
   const [phase, setPhase] = useState('ordering');
@@ -298,7 +306,7 @@ export default function GazeScreen() {
     onSelect: handleSelect,
     onFailedDwell: (count) => setFailedDwells(count),
     enabled: phase === 'ordering' && !isBusy,
-    dwellTimeMs: 1300,
+    dwellTimeMs: 1000,
   });
 
   // Watch for calibration failure or 3 failed dwell attempts -> Fallback to touch
@@ -391,19 +399,19 @@ export default function GazeScreen() {
       )}
 
       {/* 3. Floating Hands-Free Gaze Scroll Controls (Docked at Middle Right) */}
-      <div className="fixed right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-4">
+      <div className="fixed right-5 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-5">
         {/* Scroll Up Target */}
         <button
           type="button"
           data-dwell-id="scroll:up"
           onClick={handleScrollUp}
           aria-label="Look here to scroll menu up"
-          className="relative flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-[#d7c7b4] bg-[#fffaf3] text-[#1f352d] shadow-xl transition-transform hover:scale-105 active:scale-95 focus:outline-none"
+          className="relative flex h-24 w-24 md:h-28 md:w-28 items-center justify-center rounded-3xl border-3 border-[#c4af98] bg-[#fffaf3] text-[#1f352d] shadow-2xl transition-transform hover:scale-105 active:scale-95 focus:outline-none"
         >
-          {activeId === 'scroll:up' && <DwellOverlay progress={progress} className="rounded-2xl" />}
+          {activeId === 'scroll:up' && <DwellOverlay progress={progress} className="rounded-3xl" />}
           <div className="flex flex-col items-center">
-            <ChevronUp className="h-7 w-7 stroke-[3]" />
-            <span className="text-[9px] font-black uppercase">Up</span>
+            <ChevronUp className="h-9 w-9 md:h-11 md:w-11 stroke-[3] text-[#8b4f2d]" />
+            <span className="text-xs md:text-sm font-black uppercase tracking-wider text-[#2a201a]">Scroll Up</span>
           </div>
         </button>
 
@@ -413,12 +421,12 @@ export default function GazeScreen() {
           data-dwell-id="scroll:down"
           onClick={handleScrollDown}
           aria-label="Look here to scroll menu down"
-          className="relative flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-[#d7c7b4] bg-[#fffaf3] text-[#1f352d] shadow-xl transition-transform hover:scale-105 active:scale-95 focus:outline-none"
+          className="relative flex h-24 w-24 md:h-28 md:w-28 items-center justify-center rounded-3xl border-3 border-[#c4af98] bg-[#fffaf3] text-[#1f352d] shadow-2xl transition-transform hover:scale-105 active:scale-95 focus:outline-none"
         >
-          {activeId === 'scroll:down' && <DwellOverlay progress={progress} className="rounded-2xl" />}
+          {activeId === 'scroll:down' && <DwellOverlay progress={progress} className="rounded-3xl" />}
           <div className="flex flex-col items-center">
-            <ChevronDown className="h-7 w-7 stroke-[3]" />
-            <span className="text-[9px] font-black uppercase">Down</span>
+            <ChevronDown className="h-9 w-9 md:h-11 md:w-11 stroke-[3] text-[#8b4f2d]" />
+            <span className="text-xs md:text-sm font-black uppercase tracking-wider text-[#2a201a]">Scroll Down</span>
           </div>
         </button>
       </div>
@@ -542,19 +550,19 @@ export default function GazeScreen() {
                       type="button"
                       data-dwell-id="cart:toggle"
                       onClick={() => setShowMobileCart(!showMobileCart)}
-                      className="relative flex w-full flex-col md:flex-row items-center justify-between gap-2.5 rounded-2xl border border-[#3b554b] bg-[#21382f] p-3.5 text-white shadow-[0_10px_25px_rgba(33,56,47,.35)] transition-all hover:bg-[#172a22] active:scale-95"
+                      className="relative flex min-h-[80px] w-full flex-col md:flex-row items-center justify-between gap-3 rounded-2xl border-2 border-[#3b554b] bg-[#21382f] p-4 text-white shadow-[0_12px_30px_rgba(33,56,47,.45)] transition-all hover:bg-[#172a22] active:scale-95"
                     >
                       {activeId === 'cart:toggle' && <DwellOverlay progress={progress} className="rounded-2xl" />}
-                      <div className="flex items-center gap-2.5">
-                        <ShoppingBag className="h-5 w-5 text-[#e8b65a]" />
+                      <div className="flex items-center gap-3">
+                        <ShoppingBag className="h-7 w-7 text-[#e8b65a]" />
                         <div className="text-left hidden md:block">
-                          <p className="text-xs font-bold leading-tight">View Cart</p>
-                          <p className="text-[10px] text-white/70">
+                          <p className="text-sm font-bold leading-tight">View Cart</p>
+                          <p className="text-xs text-white/70">
                             {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
                           </p>
                         </div>
                       </div>
-                      <span className="text-xs font-black text-[#e8b65a]">{formatPrice(order.total)}</span>
+                      <span className="text-sm font-black text-[#e8b65a]">{formatPrice(order.total)}</span>
                     </button>
                   </div>
                 )}
@@ -717,26 +725,26 @@ export default function GazeScreen() {
                     </div>
 
                     <div className="mt-3 flex items-center justify-between border-t border-[#eee3d4] pt-3">
-                      <span className="text-xs font-semibold text-[#a2968b]">Look at buttons to adjust:</span>
-                      <div className="flex items-center gap-3">
+                      <span className="text-xs md:text-sm font-bold text-[#8c7d70]">Look to adjust:</span>
+                      <div className="flex items-center gap-4">
                         {/* Decrement Button */}
                         <button
                           type="button"
                           data-dwell-id={decDwellId}
                           onClick={() => handleUpdateQuantity(item, item.quantity - 1)}
                           disabled={isBusy}
-                          className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-[#f3eadf] text-[#5f5044] hover:bg-[#eadbc9] active:scale-95 disabled:opacity-50"
+                          className="relative flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-[#d8c8b6] bg-[#f3eadf] text-[#5f5044] hover:bg-[#eadbc9] active:scale-95 disabled:opacity-50 shadow-md"
                           aria-label={`Look to decrease ${item.item_name}`}
                         >
-                          {isDecActive && <DwellOverlay progress={progress} className="rounded-xl" />}
+                          {isDecActive && <DwellOverlay progress={progress} className="rounded-2xl" />}
                           {item.quantity === 1 ? (
-                            <Trash2 className="h-5 w-5 text-red-600" />
+                            <Trash2 className="h-7 w-7 text-red-600 stroke-[2.5]" />
                           ) : (
-                            <Minus className="h-5 w-5" />
+                            <Minus className="h-7 w-7 stroke-[3]" />
                           )}
                         </button>
 
-                        <span className="w-8 text-center text-lg font-black text-[#2a201a]">{item.quantity}</span>
+                        <span className="w-10 text-center font-display text-2xl font-black text-[#2a201a]">{item.quantity}</span>
 
                         {/* Increment Button */}
                         <button
@@ -744,11 +752,11 @@ export default function GazeScreen() {
                           data-dwell-id={incDwellId}
                           onClick={() => handleUpdateQuantity(item, item.quantity + 1)}
                           disabled={isBusy}
-                          className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-[#1f352d] text-white hover:bg-[#16261f] active:scale-95 disabled:opacity-50"
+                          className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1f352d] text-white hover:bg-[#16261f] active:scale-95 disabled:opacity-50 shadow-md"
                           aria-label={`Look to increase ${item.item_name}`}
                         >
-                          {isIncActive && <DwellOverlay progress={progress} className="rounded-xl" />}
-                          <Plus className="h-5 w-5" />
+                          {isIncActive && <DwellOverlay progress={progress} className="rounded-2xl" />}
+                          <Plus className="h-7 w-7 stroke-[3]" />
                         </button>
                       </div>
                     </div>
@@ -758,7 +766,7 @@ export default function GazeScreen() {
             </div>
 
             {/* Total & Review Order Dwell Action */}
-            <div className="border-t border-[#e5d9c8] pt-4 space-y-4">
+            <div className="border-t border-[#e5d9c8] pt-5 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-base font-bold text-[#2a201a]">Amount Payable</span>
                 <span className="font-display text-3xl font-bold text-[#8b4f2d]">
@@ -770,12 +778,12 @@ export default function GazeScreen() {
                 type="button"
                 data-dwell-id="cart:review"
                 onClick={handleReview}
-                className="relative flex min-h-touch w-full items-center justify-center gap-3 rounded-full bg-[#b95f35] px-6 text-lg font-bold text-white shadow-xl hover:bg-[#9f4f29] active:scale-[0.98]"
+                className="relative flex min-h-[76px] w-full items-center justify-center gap-3 rounded-2xl bg-[#b95f35] px-8 text-xl font-bold text-white shadow-xl hover:bg-[#9f4f29] active:scale-[0.98]"
                 aria-label="Look here to review and confirm your order"
               >
-                {activeId === 'cart:review' && <DwellOverlay progress={progress} className="rounded-full" />}
+                {activeId === 'cart:review' && <DwellOverlay progress={progress} className="rounded-2xl" />}
                 <span>Proceed to Review</span>
-                <ArrowRight className="h-5 w-5 stroke-[3]" />
+                <ArrowRight className="h-6 w-6 stroke-[3]" />
               </button>
             </div>
           </div>

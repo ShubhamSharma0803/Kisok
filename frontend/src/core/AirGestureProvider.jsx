@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useSession } from './SessionContext';
 
 const HANDS_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
 let handsLoadPromise = null;
@@ -49,9 +50,15 @@ const DRAG_HOLD_DELAY_MS = 120; // Time held before engaging drag scrolling
 
 export function AirGestureProvider({ children }) {
   const location = useLocation();
+  const { uiEmphasis } = useSession();
 
-  // Disabled strictly on Gaze Mode to avoid cursor & dwell collisions
-  const isGazeRoute = location.pathname === '/gaze';
+  // Disabled on Onboarding (/), when uiEmphasis is gaze_active, and on checkout routes
+  const isGestureDisabled =
+    location.pathname === '/' ||
+    location.pathname === '/gaze' ||
+    uiEmphasis === 'gaze_active' ||
+    location.pathname === '/payment' ||
+    location.pathname === '/thank-you';
 
   const [handDetected, setHandDetected] = useState(false);
   const [isPinching, setIsPinching] = useState(false);
@@ -80,7 +87,7 @@ export function AirGestureProvider({ children }) {
   const isHandVisibleRef = useRef(false);
 
   useEffect(() => {
-    if (isGazeRoute) {
+    if (isGestureDisabled) {
       setHandDetected(false);
       setIsPinching(false);
       setIsDoublePinchClick(false);
@@ -216,21 +223,12 @@ export function AirGestureProvider({ children }) {
 
               const hitElement = document.elementFromPoint(nextX, nextY);
               if (hitElement) {
-                // Entire Food Card Target: Clicking anywhere on a card triggers its action button
-                const card = hitElement.closest('article, [data-dwell-id], [data-item-id]');
-                if (card) {
-                  const cardBtn = card.querySelector('button');
-                  if (cardBtn) {
-                    cardBtn.click();
-                  } else {
-                    card.click();
-                  }
-                } else {
-                  // Standard button, category pill, stepper, or modal action
-                  const clickable = hitElement.closest(
-                    'button, a, input, select, textarea, [role="button"], [data-clickable], .clickable'
-                  ) || hitElement;
+                // Only click when directly over a button, link, stepper, or interactive control
+                const clickable = hitElement.closest(
+                  'button, a, input, select, textarea, [role="button"], [data-clickable], .clickable'
+                );
 
+                if (clickable) {
                   clickable.click();
                 }
               }
@@ -269,7 +267,7 @@ export function AirGestureProvider({ children }) {
         handsRef.current = hands;
 
         const processFrame = async () => {
-          if (isCancelled || isGazeRoute) return;
+          if (isCancelled || isGestureDisabled) return;
           if (video && video.readyState >= 2) {
             try {
               await hands.send({ image: video });
@@ -277,7 +275,7 @@ export function AirGestureProvider({ children }) {
           }
           if ('requestVideoFrameCallback' in video) {
             video.requestVideoFrameCallback(() => {
-              if (!isCancelled && !isGazeRoute) processFrame();
+              if (!isCancelled && !isGestureDisabled) processFrame();
             });
           } else {
             animFrameRef.current = requestAnimationFrame(processFrame);
@@ -312,12 +310,12 @@ export function AirGestureProvider({ children }) {
         videoRef.current = null;
       }
     };
-  }, [isGazeRoute]);
+  }, [isGestureDisabled]);
 
   return (
     <AirGestureContext.Provider value={{ handDetected, isPinching, isDoublePinchClick, cursor }}>
       {children}
-      {!isGazeRoute && (
+      {!isGestureDisabled && (
         <AirGestureCursor
           visible={handDetected}
           isPinching={isPinching}

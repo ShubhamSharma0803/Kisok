@@ -32,20 +32,16 @@ function loadMediaPipeFaceMesh() {
   return scriptLoadPromise;
 }
 
-// Gain Multipliers
-const HEAD_GAIN_X = 3.5; // Horizontal head yaw multiplier
-const HEAD_GAIN_Y = 4.2; // Vertical head pitch multiplier
-const IRIS_GAIN_X = 1.8; // Fine iris horizontal multiplier
-const IRIS_GAIN_Y = 2.2; // Fine iris vertical multiplier
+// Calibrated Gentle Gain Multipliers for steady, controlled movement
+const HEAD_GAIN_X = 1.6; // Gentle horizontal head multiplier
+const HEAD_GAIN_Y = 1.9; // Gentle vertical head multiplier
+const IRIS_GAIN_X = 0.8; // Fine iris horizontal multiplier
+const IRIS_GAIN_Y = 1.0; // Fine iris vertical multiplier
 
-// Snappy zero-lag smoothing
-const LERP_ALPHA = 0.35;
-// 3px deadband to absorb micro-saccadic eye tremor
-const DEADBAND_PX = 3.0;
 // Screen boundary padding
-const SCREEN_MARGIN_PX = 25;
+const SCREEN_MARGIN_PX = 20;
 // Baseline calibration frames
-const CALIBRATION_FRAMES = 8;
+const CALIBRATION_FRAMES = 12;
 
 export function useGazeTracking({ enabled = true, sessionId = null }) {
   const [gaze, setGaze] = useState(() => ({
@@ -240,16 +236,24 @@ export function useGazeTracking({ enabled = true, sessionId = null }) {
           const clampedX = Math.max(SCREEN_MARGIN_PX, Math.min(screenW - SCREEN_MARGIN_PX, targetX));
           const clampedY = Math.max(SCREEN_MARGIN_PX, Math.min(screenH - SCREEN_MARGIN_PX, targetY));
 
-          // Deadband filter
+          // Adaptive Gentle Anti-Jitter Smoothing
           const prev = cursorRef.current;
           const dist = Math.hypot(clampedX - prev.x, clampedY - prev.y);
 
           let nextX = prev.x;
           let nextY = prev.y;
 
-          if (dist >= DEADBAND_PX) {
-            nextX = prev.x + (clampedX - prev.x) * LERP_ALPHA;
-            nextY = prev.y + (clampedY - prev.y) * LERP_ALPHA;
+          if (dist >= 12.0) {
+            // Gentle alpha curves: steady fixation over buttons, controlled movement on jumps
+            let alpha = 0.08;
+            if (dist > 90) {
+              alpha = 0.35;
+            } else if (dist > 35) {
+              alpha = 0.18;
+            }
+
+            nextX = prev.x + (clampedX - prev.x) * alpha;
+            nextY = prev.y + (clampedY - prev.y) * alpha;
           }
 
           cursorRef.current = { x: nextX, y: nextY };

@@ -91,7 +91,7 @@ export default function ConfirmationScreen() {
     gaze,
     onSelect: handleDwellSelect,
     enabled: isGazeMode && !isConfirming,
-    dwellTimeMs: 1300,
+    dwellTimeMs: 1000,
   });
 
   const items = order?.items || [];

@@ -19,8 +19,16 @@ const formatPrice = (value) =>
 
 export default function LargeUIScreen() {
   const navigate = useNavigate();
-  const { sessionId, initSession } = useSession();
+  const { sessionId, initSession, uiEmphasis, setUiEmphasis } = useSession();
   const [activeSessionId, setActiveSessionId] = useState(null);
+
+  // Set active mode strictly to big_icons
+  useEffect(() => {
+    if (uiEmphasis !== 'big_icons') {
+      setUiEmphasis('big_icons');
+    }
+    sessionStorage.setItem('kiosk_mode', 'big_icons');
+  }, [uiEmphasis, setUiEmphasis]);
 
   const [menu, setMenu] = useState([]);
   const [order, setOrder] = useState(null);

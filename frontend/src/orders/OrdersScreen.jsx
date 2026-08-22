@@ -71,9 +71,17 @@ function MenuItemImage({ src, alt, category }) {
 
 export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
   const navigate = useNavigate();
-  const { sessionId, initSession } = useSession();
+  const { sessionId, sessionMode, initSession, uiEmphasis, setUiEmphasis } = useSession();
   const { reportFailedTap } = useHandoff();
   const { subscribe } = useSessionSocket(sessionId);
+
+  // Set active mode strictly to standard_touch
+  useEffect(() => {
+    if (uiEmphasis !== 'standard_touch') {
+      setUiEmphasis('standard_touch');
+    }
+    sessionStorage.setItem('kiosk_mode', 'touch');
+  }, [uiEmphasis, setUiEmphasis]);
 
   const handleBack = () => {
     if (onBackToStart) onBackToStart();
