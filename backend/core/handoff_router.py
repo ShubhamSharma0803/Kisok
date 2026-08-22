@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as DBSession
 from core.database import get_db
-from core.models import Session, HandoffLog
+from core.models import Session, HandoffLog, utcnow
 from core.enums import SessionStatus, HandoffReason
 from core.orchestrator import increment_failed_tap, evaluate_rules, get_idle_seconds
 from core.ws_manager import manager
 from core.events import EventType
+from core.schemas import ResolveHandoffRequest
 
 router = APIRouter(tags=["handoff"])
 
@@ -57,11 +58,17 @@ async def trigger_handoff(session_id: str, db: DBSession = Depends(get_db)):
     return await perform_handoff(db, session_id, HandoffReason.manual, "user_requested")
 
 @router.post("/sessions/{session_id}/resolve-handoff")
-async def resolve_handoff(session_id: str, db: DBSession = Depends(get_db)):
+async def resolve_handoff(session_id: str, payload: ResolveHandoffRequest, db: DBSession = Depends(get_db)):
     session = _get_session_or_404(db, session_id)
 
     if session.status != SessionStatus.handed_off:
         raise HTTPException(status_code=400, detail="Session is not currently handed off")
+
+    # Apply attendant's layout choice and detection metadata
+    session.ui_emphasis = payload.ui_emphasis
+    session.detection_source = "attendant_set"
+    session.detection_confidence = 1.0
+    session.detection_set_at = utcnow()
 
     session.status = SessionStatus.active
     db.commit()

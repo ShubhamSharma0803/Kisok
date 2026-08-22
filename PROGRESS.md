@@ -412,6 +412,38 @@ All routes registered in `frontend/src/App.jsx`:
 
 ---
 
+### Step 11 — Attendant Layout-Choice on Resolve-Handoff (2026-08-22): COMPLETE ✅
+
+**Spec Reference**: `PRODUCT_SPEC.md` Decision 6 — when a human attendant resolves a handoff, the attendant explicitly chooses which `ui_emphasis` the session resumes in (not auto-revert, not auto-detect reset).
+
+**Files Changed**:
+- `backend/core/schemas.py`: Added `ResolveHandoffRequest` Pydantic model with required `ui_emphasis: UIEmphasis` field.
+- `backend/core/handoff_router.py`: `POST /sessions/{id}/resolve-handoff` now accepts `ResolveHandoffRequest` body. Sets `session.ui_emphasis`, `session.detection_source = "attendant_set"`, `session.detection_confidence = 1.0`, `session.detection_set_at = utcnow()` before committing. Imported `utcnow` from `core.models` and `ResolveHandoffRequest` from `core.schemas`.
+- `frontend/src/core/api.js`: `resolveHandoff(sessionId, uiEmphasis)` now sends `{ ui_emphasis }` JSON body.
+- `frontend/src/core/HandoffWaiting.jsx`: Replaced single "Simulate Attendant Resolution (Dev)" button with three layout-specific buttons: "Resolve → Standard Touch", "Resolve → Big Icons", "Resolve → Gaze Active". Added `Monitor` and `Eye` icon imports from `lucide-react`.
+
+**Verification** (against running dev servers `localhost:8000` + `localhost:3000`):
+- ✅ **422 on missing body**: `POST /resolve-handoff` with no body → `422 Unprocessable Content`, detail: `"Field required"`.
+- ✅ **422 on invalid value**: `POST /resolve-handoff` with `{"ui_emphasis": "foo"}` → `422`, detail: `"Input should be 'standard_touch', 'big_icons' or 'gaze_active'"`.
+- ✅ **Resolve with `big_icons`**: Response shows `ui_emphasis: "big_icons"`, `detection_source: "attendant_set"`, `detection_confidence: 1.0`, `status: "active"`, `failed_tap_count: 0`.
+- ✅ **Resolve with `gaze_active`**: Same pattern, `ui_emphasis: "gaze_active"`, all detection fields correct.
+- ✅ **Resolve with `standard_touch`**: Same pattern, `ui_emphasis: "standard_touch"`, all detection fields correct.
+- ✅ **WS `mode_change` event**: Emits `session.ui_emphasis` after assignment (line 83 reads post-commit value), carrying the attendant-chosen layout.
+- ✅ **`npm run build`**: Completes cleanly in 2.83s, 0 errors.
+- ⚠️ **Browser UI verification**: Playwright CDN was unavailable (404 on driver download), so visual screenshot verification of the three buttons rendering was not possible. Code inspection confirms correct JSX structure. Manual browser testing recommended.
+
+**Addendum — Route Navigation on Resolve (2026-08-22): COMPLETE ✅**:
+- **Problem**: Resolving handoff with an attendant layout choice updated backend state and closed the overlay, but left the user on their previous route rather than navigating to the matching UI layout.
+- **Fix**: Updated `frontend/src/core/HandoffWaiting.jsx` to import `useNavigate` from `react-router-dom`, map `ui_emphasis` values (`standard_touch` → `/order`, `big_icons` → `/large-ui`, `gaze_active` → `/gaze`), and navigate to the target route upon successful `resolveHandoff` response.
+- **Verification** (Automated E2E Chrome CDP tests on running dev servers `localhost:8000` + `localhost:3000`):
+  - ✅ Clicking **"Resolve → Big Icons"** navigates to `/large-ui` and renders the LargeUIScreen.
+  - ✅ Clicking **"Resolve → Standard Touch"** navigates to `/order` and renders OrdersScreen.
+  - ✅ Clicking **"Resolve → Gaze Active"** navigates to `/gaze` and renders GazeActivePlaceholder.
+  - ✅ Total browser console errors recorded during all navigations: **0**.
+  - ✅ `npm run build` completed cleanly with 0 errors.
+
+---
+
 ### Known deviations / dead code / bugs found during this audit
 
 1. **Dead Router in `voice/router.py`**:

@@ -1,10 +1,18 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSession } from './SessionContext';
 import { useSessionSocket } from './useSessionSocket';
 import { getOrchestratorState, resolveHandoff, triggerScreenNarration } from './api';
-import { UserCheck, ShieldCheck, ArrowLeft, RefreshCw, HelpCircle, Clock, CheckCircle } from 'lucide-react';
+import { UserCheck, ShieldCheck, ArrowLeft, RefreshCw, HelpCircle, Clock, CheckCircle, Monitor, Eye } from 'lucide-react';
+
+const ROUTE_MAP = {
+  standard_touch: '/order',
+  big_icons: '/large-ui',
+  gaze_active: '/gaze',
+};
 
 export default function HandoffWaiting({ onResumeOrdering }) {
+  const navigate = useNavigate();
   const { sessionId, setSessionMode } = useSession();
   const { subscribe } = useSessionSocket(sessionId);
 
@@ -79,12 +87,17 @@ export default function HandoffWaiting({ onResumeOrdering }) {
     };
   }, [sessionId, subscribe, setSessionMode]);
 
-  const handleSimulateResolve = async () => {
+  const handleSimulateResolve = async (uiEmphasis) => {
     if (!sessionId) return;
     setIsCheckingState(true);
     try {
-      await resolveHandoff(sessionId);
+      const res = await resolveHandoff(sessionId, uiEmphasis);
       await checkStatus();
+      const targetEmphasis = res?.ui_emphasis || uiEmphasis;
+      const targetRoute = ROUTE_MAP[targetEmphasis];
+      if (targetRoute) {
+        navigate(targetRoute);
+      }
     } catch (err) {
       console.error('[HandoffWaiting] Failed to resolve handoff:', err);
     } finally {
@@ -137,39 +150,74 @@ export default function HandoffWaiting({ onResumeOrdering }) {
           </div>
 
           {/* Action Buttons: Return to Order ONLY surfaced when backend confirmed active status */}
-          <div className="pt-6 border-t-2 border-slate-800 flex flex-col sm:flex-row items-center justify-center gap-4">
-            {isActiveConfirmed && onResumeOrdering && (
-              <button
-                type="button"
-                onClick={onResumeOrdering}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 min-h-touch text-2xl font-black bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl border-2 border-emerald-400 focus:outline-none focus:ring-4 focus:ring-emerald-400 min-h-touch active:scale-[0.98] shadow-lg transition-all animate-bounce"
-              >
-                <ArrowLeft className="w-6 h-6 stroke-[3]" />
-                <span>Return to Order</span>
-              </button>
+          <div className="pt-6 border-t-2 border-slate-800 flex flex-col items-center justify-center gap-4 w-full">
+            {isActiveConfirmed ? (
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full">
+                {onResumeOrdering && (
+                  <button
+                    type="button"
+                    onClick={onResumeOrdering}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 min-h-touch text-2xl font-black bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl border-2 border-emerald-400 focus:outline-none focus:ring-4 focus:ring-emerald-400 min-h-touch active:scale-[0.98] shadow-lg transition-all animate-bounce"
+                  >
+                    <ArrowLeft className="w-6 h-6 stroke-[3]" />
+                    <span>Return to Order</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={checkStatus}
+                  disabled={isCheckingState}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 min-h-touch text-lg font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl border border-slate-600 focus:outline-none focus:ring-4 focus:ring-slate-500 disabled:opacity-50 min-h-touch shadow-md transition-all"
+                >
+                  <RefreshCw className={`w-5 h-5 shrink-0 ${isCheckingState ? 'animate-spin' : ''}`} />
+                  <span className="whitespace-nowrap">Check Status</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3 w-full">
+                <p className="text-sm text-slate-400 font-semibold uppercase tracking-wider">
+                  Simulate Attendant Resolution (Dev)
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3 w-full max-w-2xl mx-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleSimulateResolve('standard_touch')}
+                    disabled={isCheckingState}
+                    className="w-full sm:w-[280px] inline-flex items-center justify-center gap-2 px-5 py-3 min-h-touch text-base font-bold bg-amber-700 hover:bg-amber-600 text-white rounded-2xl border border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-400 disabled:opacity-50 shadow-md transition-all"
+                  >
+                    <Monitor className="w-5 h-5 shrink-0" />
+                    <span className="whitespace-nowrap">Resolve → Standard Touch</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSimulateResolve('big_icons')}
+                    disabled={isCheckingState}
+                    className="w-full sm:w-[280px] inline-flex items-center justify-center gap-2 px-5 py-3 min-h-touch text-base font-bold bg-amber-700 hover:bg-amber-600 text-white rounded-2xl border border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-400 disabled:opacity-50 shadow-md transition-all"
+                  >
+                    <UserCheck className="w-5 h-5 shrink-0" />
+                    <span className="whitespace-nowrap">Resolve → Big Icons</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSimulateResolve('gaze_active')}
+                    disabled={isCheckingState}
+                    className="w-full sm:w-[280px] inline-flex items-center justify-center gap-2 px-5 py-3 min-h-touch text-base font-bold bg-amber-700 hover:bg-amber-600 text-white rounded-2xl border border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-400 disabled:opacity-50 shadow-md transition-all"
+                  >
+                    <Eye className="w-5 h-5 shrink-0" />
+                    <span className="whitespace-nowrap">Resolve → Gaze Active</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={checkStatus}
+                    disabled={isCheckingState}
+                    className="w-full sm:w-[280px] inline-flex items-center justify-center gap-2 px-5 py-3 min-h-touch text-base font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl border border-slate-600 focus:outline-none focus:ring-4 focus:ring-slate-500 disabled:opacity-50 shadow-md transition-all"
+                  >
+                    <RefreshCw className={`w-5 h-5 shrink-0 ${isCheckingState ? 'animate-spin' : ''}`} />
+                    <span className="whitespace-nowrap">Check Status</span>
+                  </button>
+                </div>
+              </div>
             )}
-
-            {!isActiveConfirmed && (
-              <button
-                type="button"
-                onClick={handleSimulateResolve}
-                disabled={isCheckingState}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-6 min-h-touch text-lg font-bold bg-amber-700 hover:bg-amber-600 text-white rounded-2xl border border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-400 disabled:opacity-50 min-h-touch shadow-md"
-              >
-                <UserCheck className="w-5 h-5" />
-                <span>Simulate Attendant Resolution (Dev)</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={checkStatus}
-              disabled={isCheckingState}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-6 min-h-touch text-lg font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl border border-slate-600 focus:outline-none focus:ring-4 focus:ring-slate-500 disabled:opacity-50 min-h-touch"
-            >
-              <RefreshCw className={`w-5 h-5 ${isCheckingState ? 'animate-spin' : ''}`} />
-              <span>Check Status</span>
-            </button>
           </div>
         </div>
       </div>

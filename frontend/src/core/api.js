@@ -192,9 +192,10 @@ export async function triggerHandoff(sessionId) {
   });
 }
 
-export async function resolveHandoff(sessionId) {
+export async function resolveHandoff(sessionId, uiEmphasis) {
   return request(`/sessions/${sessionId}/resolve-handoff`, {
     method: 'POST',
+    body: JSON.stringify({ ui_emphasis: uiEmphasis }),
   });
 }
 
