@@ -72,8 +72,9 @@ export const HandoffProvider = ({ children }) => {
 
     const unsubMode = subscribe('mode_change', (payload) => {
       console.log('[HandoffProvider] WebSocket mode_change event received:', payload);
-      if (payload?.mode) {
-        setSessionMode(payload.mode);
+      const nextEmphasis = payload?.ui_emphasis || payload?.mode;
+      if (nextEmphasis) {
+        setSessionMode(nextEmphasis);
       }
     });
 

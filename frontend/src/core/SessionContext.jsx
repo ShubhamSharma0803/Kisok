@@ -3,9 +3,20 @@ import { createSession } from './api';
 
 const SessionContext = createContext(null);
 
+const DEFAULT_ACTIVE_CHANNELS = {
+  voice_input: true,
+  voice_output: true,
+  touch_input: true,
+  gaze_input: false,
+  captions: true,
+};
+
 export const SessionProvider = ({ children }) => {
   const [sessionId, setSessionId] = useState(null);
-  const [sessionMode, setSessionMode] = useState('voice_first');
+  const [uiEmphasis, setUiEmphasis] = useState('standard_touch');
+  const [activeChannels, setActiveChannels] = useState(DEFAULT_ACTIVE_CHANNELS);
+  const [detectionConfidence, setDetectionConfidence] = useState(0.0);
+  const [detectionSource, setDetectionSource] = useState('not_yet_implemented');
   const [sessionStatus, setSessionStatus] = useState('active');
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [sessionError, setSessionError] = useState(null);
@@ -28,7 +39,10 @@ export const SessionProvider = ({ children }) => {
     try {
       const sessionData = await createSession();
       setSessionId(sessionData.id);
-      setSessionMode(sessionData.current_mode || 'voice_first');
+      setUiEmphasis(sessionData.ui_emphasis || 'standard_touch');
+      setActiveChannels(sessionData.active_channels || DEFAULT_ACTIVE_CHANNELS);
+      setDetectionConfidence(sessionData.detection_confidence ?? 0.0);
+      setDetectionSource(sessionData.detection_source || 'not_yet_implemented');
       setSessionStatus(sessionData.status || 'active');
       setIsLoadingSession(false);
       return sessionData;
@@ -42,10 +56,10 @@ export const SessionProvider = ({ children }) => {
   }, []);
 
   /**
-   * Updates local session mode (e.g. voice_first, simplified_ui, gaze_active)
+   * Updates local UI emphasis layout (standard_touch, big_icons, gaze_active)
    */
-  const updateMode = useCallback((newMode) => {
-    setSessionMode(newMode);
+  const updateUiEmphasis = useCallback((newEmphasis) => {
+    setUiEmphasis(newEmphasis);
   }, []);
 
   /**
@@ -53,7 +67,10 @@ export const SessionProvider = ({ children }) => {
    */
   const resetSession = useCallback(() => {
     setSessionId(null);
-    setSessionMode('voice_first');
+    setUiEmphasis('standard_touch');
+    setActiveChannels(DEFAULT_ACTIVE_CHANNELS);
+    setDetectionConfidence(0.0);
+    setDetectionSource('not_yet_implemented');
     setSessionStatus('active');
     setSessionError(null);
     hasInitializedRef.current = false;
@@ -61,13 +78,19 @@ export const SessionProvider = ({ children }) => {
 
   const value = {
     sessionId,
-    sessionMode,
+    uiEmphasis,
+    activeChannels,
+    detectionConfidence,
+    detectionSource,
     sessionStatus,
     isLoadingSession,
     sessionError,
     initSession,
-    setSessionMode: updateMode,
+    setUiEmphasis: updateUiEmphasis,
     resetSession,
+    // Aliases for transition compatibility
+    sessionMode: uiEmphasis,
+    setSessionMode: updateUiEmphasis,
   };
 
   return (

@@ -5,7 +5,7 @@ import { getOrchestratorState, resolveHandoff, triggerScreenNarration } from './
 import { UserCheck, ShieldCheck, ArrowLeft, RefreshCw, HelpCircle, Clock, CheckCircle } from 'lucide-react';
 
 export default function HandoffWaiting({ onResumeOrdering }) {
-  const { sessionId, sessionMode, setSessionMode } = useSession();
+  const { sessionId, setSessionMode } = useSession();
   const { subscribe } = useSessionSocket(sessionId);
 
   const [statusMessage, setStatusMessage] = useState('Notifying a team member for assistance...');
@@ -13,12 +13,12 @@ export default function HandoffWaiting({ onResumeOrdering }) {
   const [isCheckingState, setIsCheckingState] = useState(false);
   const [isActiveConfirmed, setIsActiveConfirmed] = useState(false);
 
-  // Automatic screen narration on load in voice_first mode
+  // Trigger screen narration on load — always-on, regardless of ui_emphasis
   useEffect(() => {
-    if (sessionId && sessionMode === 'voice_first') {
+    if (sessionId) {
       triggerScreenNarration(sessionId, 'handoff');
     }
-  }, [sessionId, sessionMode]);
+  }, [sessionId]);
 
   // Poll orchestrator state every 5 seconds to check if status transitions back to active
   const checkStatus = useCallback(async () => {
@@ -32,7 +32,7 @@ export default function HandoffWaiting({ onResumeOrdering }) {
       if (state && state.status === 'active') {
         setIsActiveConfirmed(true);
         setStatusMessage('Attendant assistance completed. You can return to ordering.');
-        if (state.current_mode) setSessionMode(state.current_mode);
+        if (state.ui_emphasis) setSessionMode(state.ui_emphasis);
       } else {
         setIsActiveConfirmed(false);
       }
@@ -66,8 +66,9 @@ export default function HandoffWaiting({ onResumeOrdering }) {
     });
 
     const unsubMode = subscribe('mode_change', (payload) => {
-      if (payload?.mode) {
-        setSessionMode(payload.mode);
+      const nextEmphasis = payload?.ui_emphasis || payload?.mode;
+      if (nextEmphasis) {
+        setSessionMode(nextEmphasis);
       }
     });
 
