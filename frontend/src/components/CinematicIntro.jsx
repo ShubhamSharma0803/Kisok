@@ -53,15 +53,6 @@ export default function CinematicIntro({ onComplete }) {
           <h2>AI-POWERED ACCESSIBLE ORDERING</h2>
         </div>
       </div>
-
-      <button
-        type="button"
-        onClick={finish}
-        aria-label="Skip intro animation"
-        className="skip-btn"
-      >
-        Skip
-      </button>
     </div>
   );
 }
