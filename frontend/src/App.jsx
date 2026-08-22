@@ -4,7 +4,6 @@ import { SessionProvider, useSession } from './core/SessionContext';
 import { HandoffProvider } from './core/HandoffProvider';
 import SessionStart from './core/SessionStart';
 import OrdersScreen from './orders/OrdersScreen';
-import BigIconScreen from './orders/BigIconScreen';
 import ConfirmationScreen from './orders/ConfirmationScreen';
 import PaymentScreen from './orders/PaymentScreen';
 import ThankYouScreen from './orders/ThankYouScreen';

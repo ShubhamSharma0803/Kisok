@@ -105,7 +105,7 @@ export default function LargeUIScreen() {
 };
 
   const handleQuantity = async (item, quantity) => {
-    if (!sessionId || !item?.id) return;
+    if (!activeSessionId || !item?.id) return;
 
     setIsUpdating(true);
 
@@ -148,7 +148,7 @@ export default function LargeUIScreen() {
 
           <div className="text-center">
             <p className="text-sm font-black uppercase tracking-[0.2em] text-[#8b5e34]">
-              Easy View
+              Big Icons
             </p>
 
             <h1 className="mt-1 text-4xl font-black md:text-5xl">
@@ -212,7 +212,7 @@ export default function LargeUIScreen() {
           <div className="mb-8 rounded-3xl border-2 border-[#d8c7b4] bg-white p-6 shadow-md">
 
             <p className="text-xl font-bold text-[#8b5e34]">
-              EASY VIEW MODE
+              BIG ICONS MODE
             </p>
 
             <h2 className="mt-2 text-4xl font-black md:text-5xl">
@@ -227,65 +227,97 @@ export default function LargeUIScreen() {
 
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
 
-            {menu.map((item) => (
-              <article
-                key={item.id}
-                className="overflow-hidden rounded-3xl border-2 border-[#d8c7b4] bg-white shadow-lg"
-              >
+            {menu.map((item) => {
+              const orderItem = order?.items?.find((oi) => oi.menu_item_id === item.id);
 
-                {/* FOOD IMAGE */}
-                <div className="h-64 overflow-hidden bg-[#eadfce]">
-                  <img
-                    src={item.image_url}
-                    alt={item.name}
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </div>
+              return (
+                <article
+                  key={item.id}
+                  className="overflow-hidden rounded-3xl border-2 border-[#d8c7b4] bg-white shadow-lg"
+                >
 
-                {/* FOOD DETAILS */}
-                <div className="p-7">
+                  {/* FOOD IMAGE */}
+                  <div className="h-64 overflow-hidden bg-[#eadfce]">
+                    <img
+                      src={item.image_url}
+                      alt={item.name}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
 
-                  <h3 className="text-3xl font-black leading-tight text-[#2a201a] md:text-4xl">
-                    {item.name}
-                  </h3>
+                  {/* FOOD DETAILS */}
+                  <div className="p-7">
 
-                  {item.name_hi && (
-                    <p className="mt-2 text-xl font-bold text-[#8c7d70]">
-                      {item.name_hi}
-                    </p>
-                  )}
+                    <h3 className="text-3xl font-black leading-tight text-[#2a201a] md:text-4xl">
+                      {item.name}
+                    </h3>
 
-                  <div className="mt-6 flex items-center justify-between gap-4">
-
-                    <div>
-                      <p className="text-3xl font-black text-[#8b4f2d]">
-                        {formatPrice(item.price)}
+                    {item.name_hi && (
+                      <p className="mt-2 text-xl font-bold text-[#8c7d70]">
+                        {item.name_hi}
                       </p>
+                    )}
 
-                      <p className="mt-1 text-base font-bold text-[#95877a]">
-                        Freshly prepared
-                      </p>
+                    <div className="mt-6 flex items-center justify-between gap-4">
+
+                      <div>
+                        <p className="text-3xl font-black text-[#8b4f2d]">
+                          {formatPrice(item.price)}
+                        </p>
+
+                        <p className="mt-1 text-base font-bold text-[#95877a]">
+                          Freshly prepared
+                        </p>
+                      </div>
+
+                      {orderItem ? (
+                        <div className="flex items-center gap-3 rounded-2xl bg-[#21382f] px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={() => handleQuantity(orderItem, orderItem.quantity - 1)}
+                            disabled={isUpdating}
+                            className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-white disabled:opacity-50"
+                            aria-label={`Remove one ${item.name}`}
+                          >
+                            <Minus className="h-6 w-6" />
+                          </button>
+
+                          <span className="min-w-[2ch] text-center text-2xl font-black text-white">
+                            {orderItem.quantity}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => handleQuantity(orderItem, orderItem.quantity + 1)}
+                            disabled={isUpdating}
+                            className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-white disabled:opacity-50"
+                            aria-label={`Add one more ${item.name}`}
+                          >
+                            <Plus className="h-6 w-6" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleAddItem(item)}
+                          disabled={isUpdating}
+                          className="flex min-h-[72px] min-w-[140px] items-center justify-center gap-3 rounded-2xl bg-[#21382f] px-6 text-xl font-black text-white shadow-lg transition active:scale-95 disabled:opacity-50"
+                        >
+                          <Plus className="h-7 w-7" />
+                          ADD
+                        </button>
+                      )}
+
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleAddItem(item)}
-                      disabled={isUpdating}
-                      className="flex min-h-[72px] min-w-[140px] items-center justify-center gap-3 rounded-2xl bg-[#21382f] px-6 text-xl font-black text-white shadow-lg transition active:scale-95 disabled:opacity-50"
-                    >
-                      <Plus className="h-7 w-7" />
-                      ADD
-                    </button>
 
                   </div>
 
-                </div>
-
-              </article>
-            ))}
+                </article>
+              );
+            })}
 
           </div>
         </div>

@@ -77,6 +77,25 @@
 
 ---
 
+### Phase C — Step 9: Big Icons Status: COMPLETE ✅
+
+- **Dead Code Cleanup**: Deleted `frontend/src/orders/BigIconScreen.jsx` (dead mockup with static emoji cards not attached to any `<Route>`) and removed its unused import in `frontend/src/App.jsx`.
+- **Branding Alignment**: Renamed all "Easy View" labels to "Big Icons" / "BIG ICONS MODE" in `frontend/src/orders/LargeUIScreen.jsx` to match the `UIEmphasis.big_icons` enum value.
+- **Session ID Guard Fix**: Fixed latent bug in `handleQuantity` where the guard checked `sessionId` instead of `activeSessionId` (the ID actually passed to `deleteOrderItem` / `updateOrderItemQuantity`).
+- **Interactive Quantity Steppers**: Wired menu cards to display `[-] qty [+]` buttons whenever the item is already present in `order.items` (matched via `oi.menu_item_id === item.id`), while retaining the large `[+ ADD]` button for unselected items.
+- **Cart Summary Synchronization**: Verified cart bar (total + item count) reflects increments, decrements, and deletions dynamically.
+
+**Verification Results** (Puppeteer automated browser suite against dev server):
+- ✅ `http://localhost:3000/large-ui` loads real database menu (26 items).
+- ✅ Header eyebrow renders `"BIG ICONS"` and intro card renders `"BIG ICONS MODE"`.
+- ✅ Clicking `ADD` sends `POST /sessions/{id}/items` and transitions button to `[-] 1 [+]`.
+- ✅ Clicking `+` twice sends `PATCH` requests and increments quantity to `3` (cart updates from ₹99 to ₹297).
+- ✅ Clicking `-` three times sends `DELETE` request, removes item, reverts button to `ADD`, and hides cart bar.
+- ✅ Zero remaining references to `BigIconScreen` across the repository (`grep` confirmed clean).
+- ✅ Frontend bundle builds cleanly (`npm run build` completed in 4.47s with 0 errors).
+
+---
+
 ### Phase A — Step 2a: Backend WS event standardization Status: COMPLETE ✅
 - **vision/router.py**: Fixed broken `broadcast_to_session` call by replacing it with `send_event(session_id, EventType.screen_narration, payload)`.
 - **voice/router.py**: Removed dead, unmounted duplicate `narrate_router` (lines ~404-461).

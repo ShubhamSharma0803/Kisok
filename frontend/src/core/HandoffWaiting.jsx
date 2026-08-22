@@ -79,11 +79,11 @@ export default function HandoffWaiting({ onResumeOrdering }) {
     };
   }, [sessionId, subscribe, setSessionMode]);
 
-  const handleSimulateResolve = async () => {
+  const handleResolveWith = async (uiEmphasis) => {
     if (!sessionId) return;
     setIsCheckingState(true);
     try {
-      await resolveHandoff(sessionId);
+      await resolveHandoff(sessionId, uiEmphasis);
       await checkStatus();
     } catch (err) {
       console.error('[HandoffWaiting] Failed to resolve handoff:', err);
@@ -91,6 +91,12 @@ export default function HandoffWaiting({ onResumeOrdering }) {
       setIsCheckingState(false);
     }
   };
+
+  const layoutChoices = [
+    { value: 'standard_touch', label: 'Standard Touch', icon: '👆' },
+    { value: 'big_icons',      label: 'Big Icons',      icon: '🔍' },
+    { value: 'gaze_active',    label: 'Gaze Active',    icon: '👁️' },
+  ];
 
   return (
     <main 
@@ -137,7 +143,7 @@ export default function HandoffWaiting({ onResumeOrdering }) {
           </div>
 
           {/* Action Buttons: Return to Order ONLY surfaced when backend confirmed active status */}
-          <div className="pt-6 border-t-2 border-slate-800 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="pt-6 border-t-2 border-slate-800 flex flex-col items-center gap-4">
             {isActiveConfirmed && onResumeOrdering && (
               <button
                 type="button"
@@ -150,15 +156,25 @@ export default function HandoffWaiting({ onResumeOrdering }) {
             )}
 
             {!isActiveConfirmed && (
-              <button
-                type="button"
-                onClick={handleSimulateResolve}
-                disabled={isCheckingState}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-6 min-h-touch text-lg font-bold bg-amber-700 hover:bg-amber-600 text-white rounded-2xl border border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-400 disabled:opacity-50 min-h-touch shadow-md"
-              >
-                <UserCheck className="w-5 h-5" />
-                <span>Simulate Attendant Resolution (Dev)</span>
-              </button>
+              <div className="w-full space-y-3">
+                <p className="text-sm text-slate-500 font-semibold uppercase tracking-wider">
+                  Simulate Attendant Resolution (Dev)
+                </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  {layoutChoices.map(({ value, label, icon }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => handleResolveWith(value)}
+                      disabled={isCheckingState}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 min-h-touch text-lg font-bold bg-amber-700 hover:bg-amber-600 text-white rounded-2xl border border-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-400 disabled:opacity-50 shadow-md transition-all"
+                    >
+                      <span className="text-xl">{icon}</span>
+                      <span>Resolve → {label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
 
             <button
