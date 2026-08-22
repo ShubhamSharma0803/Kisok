@@ -19,7 +19,7 @@ class NarrateRequest(BaseModel):
     context: Dict[str, Any] = Field(default_factory=dict)
     screenshot_b64: Optional[str] = Field(default=None, description="Optional PNG base64 for VLM")
     prefer_vision: bool = Field(default=False, description="Use VLM if screenshot provided")
-    push_ws: bool = Field(default=False, description="Also push result via WebSocket")
+    push_ws: bool = Field(default=True, description="Also push result via WebSocket")
 
 
 class NarrateResponse(BaseModel):

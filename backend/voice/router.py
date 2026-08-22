@@ -350,6 +350,17 @@ async def process_voice(
         if not skip_tts and reply:
             tts_audio = tts.speak(reply, lang=detected_lang)
             tts_b64 = base64.b64encode(tts_audio).decode()
+            # Emit screen_narration with speech text for live caption overlay
+            await manager.send_event(
+                session_id,
+                EventType.screen_narration,
+                {
+                    "text": reply,
+                    "tts_audio_b64": tts_b64,
+                    "source": "voice_reply",
+                    "highlight_target": None
+                }
+            )
 
         return {
             "status": "ok",

@@ -198,19 +198,23 @@ export async function resolveHandoff(sessionId) {
   });
 }
 
-export async function narrateScreen(sessionId, screen, context = {}) {
+export async function narrateScreen(sessionId, screen, context = {}, pushWs = true) {
   return request(`/sessions/${sessionId}/narrate`, {
     method: 'POST',
-    body: JSON.stringify({ screen, context }),
+    body: JSON.stringify({ screen, context, push_ws: pushWs }),
   });
 }
 
 export async function triggerScreenNarration(sessionId, screen, context = {}) {
   try {
-    const res = await narrateScreen(sessionId, screen, context);
+    const res = await narrateScreen(sessionId, screen, context, true);
     if (res?.tts_audio_b64) {
       const audio = new Audio(`data:audio/mp3;base64,${res.tts_audio_b64}`);
       audio.play().catch(() => {});
+    }
+    // Also dispatch local caption event immediately as defensive fallback
+    if (res?.narration && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('kiosk:show_caption', { detail: { text: res.narration } }));
     }
     return res;
   } catch (err) {

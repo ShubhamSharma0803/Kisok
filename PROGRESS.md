@@ -11,6 +11,36 @@
 
 ---
 
+### Caption Regression Fix (2026-08-22): RESOLVED ✅
+
+**Problem**: Captions were not visible anywhere in the running app (user-verified in Chrome), despite `#global-caption-overlay` being added to `ScreenNarrationBridge.jsx`.
+
+**Root Causes Identified (5)**:
+1. **`push_ws` default `false` in backend**: `NarrateRequest.push_ws` in `vision/router.py` defaulted to `False`. Frontend `api.js` never sent `push_ws: true`. Backend returned narration via HTTP response only — never emitted WebSocket `screen_narration` event. Since `ScreenNarrationBridge` only listened to WS events, no caption appeared.
+2. **Timer cleanup bug**: Timer ID stored in React state (`setClearTimer`), with a `useEffect([clearTimer])` cleanup that cleared the timer immediately on state change before it could fire the 6s fadeout.
+3. **Voice reply captions never emitted**: `POST /sessions/{id}/voice` returned TTS audio in HTTP response but never emitted `screen_narration` WS event.
+4. **Missing `useRef` import**: Refactored `ScreenNarrationBridge` used `useRef` without importing it → `ReferenceError` crash.
+5. **Missing `useEffect` import in SessionContext**: Auto-init `useEffect` added without import → `ReferenceError` crash on direct URL navigation.
+
+**Files Changed**:
+- `backend/vision/router.py`: `push_ws` default `False` → `True`
+- `backend/voice/router.py`: Emit `screen_narration` WS event on voice TTS reply
+- `frontend/src/core/api.js`: Pass `push_ws: true`; dispatch `kiosk:show_caption` CustomEvent as sync fallback
+- `frontend/src/core/ScreenNarrationBridge.jsx`: `useRef` for timer; added import; dual listener (WS + CustomEvent); stable refs
+- `frontend/src/core/SessionContext.jsx`: Auto-init session on mount; expose `window.__SESSION_ID__`; added `useEffect` import
+- `frontend/src/core/useSessionSocket.js`: Removed diagnostic `console.log` lines
+- `frontend/src/orders/OrdersScreen.jsx`: Move `lastNarratedHash` update inside setTimeout; add `order?.total` to deps
+
+**Verification** (Puppeteer headless Chrome against `localhost:3000` dev server):
+- ✅ `#global-caption-overlay` found in DOM with `display: block`, `opacity: 1`, `visibility: visible`, `zIndex: 9999`
+- ✅ Caption text: "You are browsing the full menu. 26 dishes shown. Current total is 0 rupees."
+- ✅ Auto-fadeout after 6s confirmed (overlay removed from DOM)
+- ✅ Pushed narration via `POST /narrate/push` triggers new caption with updated text
+- ✅ WebSocket `screen_narration` events received with full payload
+- ✅ 0 console errors
+
+---
+
 ### Phase A — Step 2a: Backend WS event standardization Status: COMPLETE ✅
 - **vision/router.py**: Fixed broken `broadcast_to_session` call by replacing it with `send_event(session_id, EventType.screen_narration, payload)`.
 - **voice/router.py**: Removed dead, unmounted duplicate `narrate_router` (lines ~404-461).

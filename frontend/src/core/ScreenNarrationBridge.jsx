@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useSession } from './SessionContext';
 import { useHandoff } from './HandoffProvider';
@@ -27,36 +27,43 @@ export default function ScreenNarrationBridge() {
 
   const [captionText, setCaptionText] = useState('');
   const [captionVisible, setCaptionVisible] = useState(false);
-  const [clearTimer, setClearTimer] = useState(null);
+  const clearTimerRef = useRef(null);
+
+  // Keep latest location & handoff state in refs so callbacks never trigger unneeded effect re-subscriptions
+  const locationRef = useRef(location.pathname);
+  const isHandedOffRef = useRef(isHandedOff);
+  useEffect(() => {
+    locationRef.current = location.pathname;
+    isHandedOffRef.current = isHandedOff;
+  }, [location.pathname, isHandedOff]);
 
   /** Show caption text for 6 seconds, then fade out */
   const showCaption = useCallback((text) => {
     if (!text) return;
     setCaptionText(text);
     setCaptionVisible(true);
-    // Clear any existing timer before setting a new one
-    setClearTimer((prev) => {
-      if (prev) clearTimeout(prev);
-      return setTimeout(() => {
-        setCaptionVisible(false);
-      }, 6000);
-    });
+
+    if (clearTimerRef.current) {
+      clearTimeout(clearTimerRef.current);
+    }
+    clearTimerRef.current = setTimeout(() => {
+      setCaptionVisible(false);
+    }, 6000);
   }, []);
 
-  /** Re-trigger narration API for the current screen (for request_repeat payloads) */
+  /** Re-trigger narration API for current screen when backend requests repeat */
   const handleRepeat = useCallback(() => {
     if (!sessionId) return;
-    repeatNarrationForCurrentScreen(sessionId, location.pathname, isHandedOff);
-  }, [sessionId, isHandedOff, location.pathname]);
+    repeatNarrationForCurrentScreen(sessionId, locationRef.current, isHandedOffRef.current);
+  }, [sessionId]);
 
+  // 1. Subscribe to WebSocket screen_narration events
   useEffect(() => {
     if (!sessionId) return;
     const unsub = subscribe('screen_narration', (payload) => {
-      // Always show caption text if present — no mode gate
       if (payload?.text) {
         showCaption(payload.text);
       }
-      // Also re-trigger API if backend requests a repeat
       if (payload?.request_repeat) {
         handleRepeat();
       }
@@ -64,8 +71,25 @@ export default function ScreenNarrationBridge() {
     return unsub;
   }, [sessionId, subscribe, showCaption, handleRepeat]);
 
-  // Cleanup timer on unmount
-  useEffect(() => () => { if (clearTimer) clearTimeout(clearTimer); }, [clearTimer]);
+  // 2. Listen to local custom event 'kiosk:show_caption' for immediate zero-latency sync
+  useEffect(() => {
+    const handleLocalCaption = (e) => {
+      if (e.detail?.text) {
+        showCaption(e.detail.text);
+      }
+    };
+    window.addEventListener('kiosk:show_caption', handleLocalCaption);
+    return () => window.removeEventListener('kiosk:show_caption', handleLocalCaption);
+  }, [showCaption]);
+
+  // Cleanup timer on component unmount
+  useEffect(() => {
+    return () => {
+      if (clearTimerRef.current) {
+        clearTimeout(clearTimerRef.current);
+      }
+    };
+  }, []);
 
   if (!captionVisible || !captionText) return null;
 

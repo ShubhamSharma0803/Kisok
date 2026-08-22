@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { createSession } from './api';
 
 const SessionContext = createContext(null);
@@ -39,6 +39,9 @@ export const SessionProvider = ({ children }) => {
     try {
       const sessionData = await createSession();
       setSessionId(sessionData.id);
+      if (typeof window !== 'undefined') {
+        window.__SESSION_ID__ = sessionData.id;
+      }
       setUiEmphasis(sessionData.ui_emphasis || 'standard_touch');
       setActiveChannels(sessionData.active_channels || DEFAULT_ACTIVE_CHANNELS);
       setDetectionConfidence(sessionData.detection_confidence ?? 0.0);
@@ -54,6 +57,13 @@ export const SessionProvider = ({ children }) => {
       return null;
     }
   }, []);
+
+  // Auto-initialize session if not present (ensures all routes have a session even on direct URL load)
+  useEffect(() => {
+    if (!sessionId && !isLoadingSession && !sessionError && !hasInitializedRef.current) {
+      initSession();
+    }
+  }, [sessionId, isLoadingSession, sessionError, initSession]);
 
   /**
    * Updates local UI emphasis layout (standard_touch, big_icons, gaze_active)
