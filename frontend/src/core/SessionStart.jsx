@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from './SessionContext';
 import { RefreshCw, AlertCircle } from 'lucide-react';
-import OrderSplashAnimation from '../components/OrderSplashAnimation';
+import CinematicIntro from './CinematicIntro';
 
 export default function SessionStart({ onNavigate }) {
   const navigate = useNavigate();
@@ -38,7 +38,7 @@ export default function SessionStart({ onNavigate }) {
       aria-label="Kiosk Session Start"
     >
       {showOrderSplash ? (
-        <OrderSplashAnimation onComplete={handleSplashComplete} />
+        <CinematicIntro onComplete={handleSplashComplete} />
       ) : (
         <div className="max-w-2xl mx-auto my-auto p-10 rounded-[2rem] bg-[#fffdfa] border border-[#e5d7c8] text-[#2a201a] text-center space-y-6 shadow-[0_20px_50px_rgba(76,49,28,.12)]">
           {isLoadingSession && (

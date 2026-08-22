@@ -41,6 +41,42 @@
 
 ---
 
+### UI Swap: Cinematic Welcome Intro Animation Status: COMPLETE ✅
+
+**Problem / Context**: Resolves `PRODUCT_SPEC.md` Section 5, Decision 2 (welcome animation screen content), previously open/undecided. Replaced legacy `OrderSplashAnimation.jsx` (which played a static video `/assets/wlcm1.mp4`) with a modern, dynamic CSS/sticker animation `CinematicIntro.jsx` + `CinematicIntro.css`.
+
+**Specification Compliance**:
+- Per `PRODUCT_SPEC.md` Section 4, point 2: passive 5–6s animation window with **zero interactive UI elements/buttons** to allow silent camera classification.
+- Auto-navigates directly to `/order` on complete with no manual picker screen (maintaining Step 1's fix).
+- Respects `prefers-reduced-motion: reduce` by immediately skipping the animation (< 600ms) and transitioning straight to `/order`.
+
+**Asset Pipeline & Reproducibility**:
+1. **Generation Tool**: Built-in `generate_image` with prompt template for flat, colorful food-delivery vector sticker illustration aesthetic on solid pure white background.
+2. **Post-Processing Transparency**: Python script using Pillow (`PIL`) and `scipy.ndimage.label` connected-component extraction (`is_pure_white = (r >= 235) & (g >= 235) & (b >= 235) & (sat_diff <= 15)`), removing both external boundaries and enclosed holes (e.g. donut hole, between fries, between cheese strings) without eroding sticker edges.
+3. **Generated PNGs** (saved in `frontend/public/assets/`):
+   - `pizza_flying.png` (717x647, transparent)
+   - `fries_flying.png` (830x807, transparent)
+   - `donut_flying.png` (773x760, transparent)
+   - `sandwich_flying.png` (821x794, transparent)
+   - `drink_flying.png` (707x887, transparent)
+   - `burger_hero.png` (877x808, transparent)
+
+**Files Changed**:
+- `frontend/src/core/CinematicIntro.jsx`: Created new animation component with 6s timeout and reduced-motion handler.
+- `frontend/src/core/CinematicIntro.css`: Created stylesheet with keyframe animations (`cameraPush`, `flyIn1-6`, `pulseAnim`, `heroReveal`, `textFadeIn`).
+- `frontend/src/core/SessionStart.jsx`: Replaced `OrderSplashAnimation` with `CinematicIntro` wired to `handleSplashComplete`.
+- `frontend/src/components/OrderSplashAnimation.jsx`: Deleted (legacy unreferenced component).
+- `PRODUCT_SPEC.md`: Marked Section 5 Decision 2 as RESOLVED.
+
+**Verification Results** (Live Puppeteer headless Chrome test suite):
+- ✅ All 6 PNG assets load with HTTP 200 (0 network errors / 404s).
+- ✅ Visual transparency verified across dark `#0f172a` and warm `#faecd0` composite layers: 0 white halos, 0 white boxes, all enclosed gaps cleanly transparent.
+- ✅ Full 6s intro plays and automatically navigates to `/order`.
+- ✅ Global captions overlay on `/order` continues to function with 0 errors.
+- ✅ `prefers-reduced-motion: reduce` skips immediately to `/order` (542ms).
+
+---
+
 ### Phase A — Step 2a: Backend WS event standardization Status: COMPLETE ✅
 - **vision/router.py**: Fixed broken `broadcast_to_session` call by replacing it with `send_event(session_id, EventType.screen_narration, payload)`.
 - **voice/router.py**: Removed dead, unmounted duplicate `narrate_router` (lines ~404-461).
