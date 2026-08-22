@@ -249,9 +249,11 @@ def evaluate_profile(pose_buffer, ear_buffer, iris_buffer, wrist_frames, total_f
         tremor_score = 0.0
 
     # Height classification:
-    # Top-of-frame is y=0.0, bottom is y=1.0.
-    is_tall_standing = (avg_nose_y < 0.25) and (avg_shoulder_y < 0.42)
-    is_seated = (avg_shoulder_y >= 0.46 or avg_nose_y >= 0.28) and not is_tall_standing
+    # In webcam frame: y=0.0 is top, y=1.0 is bottom.
+    # Standing users have heads close to top of camera frame (nose_y < 0.22, shoulder_y < 0.38).
+    # Sitting / wheelchair users have head in middle/lower frame (nose_y >= 0.22 or shoulder_y >= 0.40).
+    is_tall_standing = (avg_nose_y < 0.22) and (avg_shoulder_y < 0.38)
+    is_seated = (avg_shoulder_y >= 0.40 or avg_nose_y >= 0.22) and not is_tall_standing
 
     print(
         f"[evaluate_profile] avg_shoulder_y={avg_shoulder_y:.3f}, "
@@ -269,7 +271,7 @@ def evaluate_profile(pose_buffer, ear_buffer, iris_buffer, wrist_frames, total_f
             "metrics": {"avg_ear": round(avg_ear, 3), "reason": "Closed eyes / Visual guidance required"}
         }
 
-    # 2. PRIORITY 2: Seated / Wheelchair User (Low Reach) -> Big Icons Mode
+    # 2. PRIORITY 2: Seated / Wheelchair User (Lower Height / Reach) -> Big Icons Mode
     if is_seated:
         print("[evaluate_profile] Decision: Big Icons Mode (Seated profile)")
         return {
