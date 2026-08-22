@@ -106,18 +106,17 @@ export default function ConfirmationScreen() {
       <header className="border-b border-[#e7dccd] bg-[#fffaf3] px-6 py-5 md:px-10 shadow-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            {isPending && (
-              <button
-                type="button"
-                data-dwell-id="nav:back"
-                onClick={handleBackToMenu}
-                className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#d8cbb9] bg-white text-[#211b17] shadow-sm transition hover:bg-[#f4eadc] active:scale-95 focus:outline-none focus:ring-4 focus:ring-[#b66b3c]/25"
-                aria-label="Back to menu"
-              >
-                {activeId === 'nav:back' && <DwellOverlay progress={progress} className="rounded-full" />}
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-            )}
+            <button
+              type="button"
+              data-dwell-id="nav:back"
+              onClick={handleBackToMenu}
+              className="relative flex items-center gap-2.5 h-12 px-5 rounded-full border-2 border-[#d8cbb9] bg-white text-[#211b17] shadow-sm transition hover:bg-[#f4eadc] active:scale-95 focus:outline-none focus:ring-4 focus:ring-[#b66b3c]/25 font-bold text-sm"
+              aria-label="Back to menu"
+            >
+              {activeId === 'nav:back' && <DwellOverlay progress={progress} className="rounded-full" />}
+              <ArrowLeft className="h-5 w-5 stroke-[2.5]" />
+              <span>Back to Menu</span>
+            </button>
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#a66b3f]">THE KIOSK KITCHEN</p>
               <h1 className="font-display text-3xl md:text-4xl font-bold text-[#211b17]">Review Your Order</h1>

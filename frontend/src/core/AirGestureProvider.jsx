@@ -34,23 +34,28 @@ function loadMediaPipeHands() {
 const AirGestureContext = createContext({
   handDetected: false,
   isPinching: false,
+  isTapping: false,
   cursor: { x: 0, y: 0 },
 });
 
 export const useAirGestures = () => useContext(AirGestureContext);
 
-const PINCH_THRESHOLD = 0.045; // Euclidean distance threshold for thumb-index pinch
-const LERP_ALPHA = 0.35; // Snappy smoothing factor
-const CLICK_COOLDOWN_MS = 350; // Minimum interval between pinch clicks
+// Interaction Tunings
+const LERP_ALPHA = 0.38; // Cursor smoothing factor
+const PINCH_THRESHOLD = 0.070; // 3D distance threshold for natural pinch detection
+const DRAG_SCROLL_SENSITIVITY = 2.4; // Multiplier for smooth pinch-and-drag scrolling
+const DRAG_START_THRESHOLD_PX = 18; // Distance moved while pinching before entering drag-scroll mode
+const CLICK_DEBOUNCE_MS = 400; // Debounce between clicks
 
 export function AirGestureProvider({ children }) {
   const location = useLocation();
 
-  // Disabled ONLY in Gaze Mode to prevent cursor & dwell conflicts
+  // Disabled strictly on Gaze Mode to prevent cursor & dwell collisions
   const isGazeRoute = location.pathname === '/gaze';
 
   const [handDetected, setHandDetected] = useState(false);
   const [isPinching, setIsPinching] = useState(false);
+  const [isTapping, setIsTapping] = useState(false);
   const [cursor, setCursor] = useState({
     x: typeof window !== 'undefined' ? window.innerWidth / 2 : 500,
     y: typeof window !== 'undefined' ? window.innerHeight / 2 : 400,
@@ -66,21 +71,26 @@ export function AirGestureProvider({ children }) {
     y: typeof window !== 'undefined' ? window.innerHeight / 2 : 400,
   });
 
-  const wasPinchingRef = useRef(false);
+  // State machine refs
+  const isPinchingRef = useRef(false);
+  const pinchStartRef = useRef(null); // { x, y, time }
+  const prevPinchYRef = useRef(null);
+  const isDraggingRef = useRef(false);
   const lastClickTimeRef = useRef(0);
+  const prevHandPosRef = useRef(null);
+  const recentHandSpeedRef = useRef(0);
   const isHandVisibleRef = useRef(false);
 
   useEffect(() => {
-    // If we're on the Gaze Route, unmount/pause everything
     if (isGazeRoute) {
       setHandDetected(false);
       setIsPinching(false);
+      setIsTapping(false);
       return;
     }
 
     let isCancelled = false;
 
-    // Create off-screen video element for webcam capture
     let video = videoRef.current;
     if (!video) {
       video = document.createElement('video');
@@ -138,13 +148,18 @@ export function AirGestureProvider({ children }) {
 
           const screenW = window.innerWidth || 1920;
           const screenH = window.innerHeight || 1080;
+          const now = performance.now();
 
           if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
             if (isHandVisibleRef.current) {
               isHandVisibleRef.current = false;
               setHandDetected(false);
               setIsPinching(false);
-              wasPinchingRef.current = false;
+              setIsTapping(false);
+              isPinchingRef.current = false;
+              isDraggingRef.current = false;
+              pinchStartRef.current = null;
+              prevHandPosRef.current = null;
             }
             return;
           }
@@ -160,18 +175,19 @@ export function AirGestureProvider({ children }) {
           const indexTip = landmarks[8];
           // Landmark 4: Thumb Tip (Pinch Anchor)
           const thumbTip = landmarks[4];
+          // Landmark 0: Wrist
+          const wrist = landmarks[0];
 
-          if (!indexTip || !thumbTip) return;
+          if (!indexTip || !thumbTip || !wrist) return;
 
           // 1. Mirrored Horizontal Position Mapping
           const rawTargetX = (1.0 - indexTip.x) * screenW;
           const rawTargetY = indexTip.y * screenH;
 
-          // Soft Clamping to Viewport Bounds
           const targetX = Math.max(10, Math.min(screenW - 10, rawTargetX));
           const targetY = Math.max(10, Math.min(screenH - 10, rawTargetY));
 
-          // 2. LERP Smoothing (alpha = 0.35)
+          // 2. LERP Cursor Smoothing
           const prev = cursorRef.current;
           const nextX = prev.x + (targetX - prev.x) * LERP_ALPHA;
           const nextY = prev.y + (targetY - prev.y) * LERP_ALPHA;
@@ -179,58 +195,89 @@ export function AirGestureProvider({ children }) {
           cursorRef.current = { x: nextX, y: nextY };
           setCursor({ x: nextX, y: nextY });
 
-          // 3. Pinch-to-Click Detection (Euclidean 3D Distance)
+          // 3. Hand Velocity Calculation
+          if (prevHandPosRef.current) {
+            const dt = Math.max(16, now - prevHandPosRef.current.time);
+            const dist = Math.hypot(wrist.x - prevHandPosRef.current.x, wrist.y - prevHandPosRef.current.y);
+            recentHandSpeedRef.current = dist / (dt / 1000);
+          }
+          prevHandPosRef.current = { x: wrist.x, y: wrist.y, time: now };
+
+          // 4. Euclidean 3D Distance for Thumb + Index Pinch
           const dx = thumbTip.x - indexTip.x;
           const dy = thumbTip.y - indexTip.y;
           const dz = (thumbTip.z || 0) - (indexTip.z || 0);
           const pinchDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
           const pinchingNow = pinchDistance < PINCH_THRESHOLD;
-          setIsPinching(pinchingNow);
 
-          const now = performance.now();
+          // 5. Robust State Machine: Instant Click vs Drag Clutch
+          if (pinchingNow && !isPinchingRef.current) {
+            // A. PINCH DOWN
+            isPinchingRef.current = true;
+            setIsPinching(true);
+            pinchStartRef.current = { x: nextX, y: nextY, time: now };
+            prevPinchYRef.current = nextY;
+            isDraggingRef.current = false;
 
-          // 4. Trigger Click on Pinch Down (false -> true transition)
-          if (pinchingNow && !wasPinchingRef.current) {
-            if (now - lastClickTimeRef.current >= CLICK_COOLDOWN_MS) {
+            // If hand is relatively stationary, trigger click instantly on pinch down
+            const isHandMovingFast = recentHandSpeedRef.current > 0.45;
+
+            if (!isHandMovingFast && now - lastClickTimeRef.current >= CLICK_DEBOUNCE_MS) {
               lastClickTimeRef.current = now;
+              setIsTapping(true);
+              setTimeout(() => setIsTapping(false), 240);
 
-              // Find and click target element under air cursor
               const hitElement = document.elementFromPoint(nextX, nextY);
               if (hitElement) {
-                const clickable = hitElement.closest(
-                  'button, a, input, select, textarea, [role="button"], [data-clickable], article, .clickable'
-                ) || hitElement;
+                // Entire Food Card Target: Clicking anywhere on a card triggers its action/button
+                const card = hitElement.closest('article, [data-dwell-id], [data-item-id]');
+                if (card) {
+                  const cardBtn = card.querySelector('button');
+                  if (cardBtn) {
+                    cardBtn.click();
+                  } else {
+                    card.click();
+                  }
+                } else {
+                  // Standard button, tab, pill, stepper, or modal action
+                  const clickable = hitElement.closest(
+                    'button, a, input, select, textarea, [role="button"], [data-clickable], .clickable'
+                  ) || hitElement;
 
-                clickable.click();
+                  clickable.click();
+                }
               }
             }
-          }
-          wasPinchingRef.current = pinchingNow;
+          } else if (pinchingNow && isPinchingRef.current) {
+            // B. PINCH HELD (ACTIVE DRAG CLUTCH)
+            if (prevPinchYRef.current !== null && pinchStartRef.current) {
+              const deltaY = nextY - prevPinchYRef.current;
+              const totalMovedY = Math.abs(nextY - pinchStartRef.current.y);
 
-          // 5. Contactless Air-Scrolling (Top & Bottom 12% Viewport Trigger Zones)
-          const scrollMarginTop = screenH * 0.12;
-          const scrollMarginBottom = screenH * 0.88;
+              if (totalMovedY >= DRAG_START_THRESHOLD_PX) {
+                isDraggingRef.current = true;
+                const scrollStep = deltaY * DRAG_SCROLL_SENSITIVITY;
 
-          if (nextY < scrollMarginTop) {
-            const intensity = (1 - nextY / scrollMarginTop);
-            const scrollDelta = -Math.round(intensity * 18);
-            window.scrollBy({ top: scrollDelta, behavior: 'auto' });
-            
-            // Also scroll any active overflow container under cursor if present
-            const scrollTarget = document.elementFromPoint(nextX, nextY)?.closest('.overflow-y-auto, .overflow-y-scroll, main');
-            if (scrollTarget && scrollTarget !== document.body) {
-              scrollTarget.scrollBy({ top: scrollDelta, behavior: 'auto' });
+                window.scrollBy({ top: scrollStep, behavior: 'auto' });
+
+                // Also scroll active modal or menu container under cursor
+                const scrollTarget = document
+                  .elementFromPoint(nextX, nextY)
+                  ?.closest('.overflow-y-auto, .overflow-y-scroll, main');
+                if (scrollTarget && scrollTarget !== document.body) {
+                  scrollTarget.scrollBy({ top: scrollStep, behavior: 'auto' });
+                }
+              }
+
+              prevPinchYRef.current = nextY;
             }
-          } else if (nextY > scrollMarginBottom) {
-            const intensity = (nextY - scrollMarginBottom) / (screenH * 0.12);
-            const scrollDelta = Math.round(intensity * 18);
-            window.scrollBy({ top: scrollDelta, behavior: 'auto' });
-
-            const scrollTarget = document.elementFromPoint(nextX, nextY)?.closest('.overflow-y-auto, .overflow-y-scroll, main');
-            if (scrollTarget && scrollTarget !== document.body) {
-              scrollTarget.scrollBy({ top: scrollDelta, behavior: 'auto' });
-            }
+          } else if (!pinchingNow && isPinchingRef.current) {
+            // C. PINCH RELEASED (FINGERS SEPARATED)
+            isPinchingRef.current = false;
+            setIsPinching(false);
+            isDraggingRef.current = false;
+            pinchStartRef.current = null;
+            prevPinchYRef.current = null;
           }
         });
 
@@ -283,57 +330,81 @@ export function AirGestureProvider({ children }) {
   }, [isGazeRoute]);
 
   return (
-    <AirGestureContext.Provider value={{ handDetected, isPinching, cursor }}>
+    <AirGestureContext.Provider value={{ handDetected, isPinching, isTapping, cursor }}>
       {children}
-      {/* Global Air Reticle Cursor (Unmounted in Gaze Mode) */}
-      {!isGazeRoute && <AirGestureCursor visible={handDetected} isPinching={isPinching} cursor={cursor} />}
+      {!isGazeRoute && (
+        <AirGestureCursor
+          visible={handDetected}
+          isPinching={isPinching}
+          isTapping={isTapping}
+          isDragging={isDraggingRef.current}
+          cursor={cursor}
+        />
+      )}
     </AirGestureContext.Provider>
   );
 }
 
 /**
- * Sleek Cyan / Emerald Glowing Air Gesture Reticle
+ * Sleek Cyan / Emerald Air Pinch Reticle with Instant Click & Drag Feedback
  */
-function AirGestureCursor({ visible, isPinching, cursor }) {
+function AirGestureCursor({ visible, isPinching, isTapping, isDragging, cursor }) {
   if (!visible) return null;
 
   return (
     <div
-      className="fixed pointer-events-none z-[99999] transition-transform duration-100 ease-out"
+      className="fixed pointer-events-none z-[99999] transition-transform duration-75 ease-out"
       style={{
         left: `${cursor.x}px`,
         top: `${cursor.y}px`,
-        transform: `translate(-50%, -50%) scale(${isPinching ? 0.8 : 1})`,
+        transform: `translate(-50%, -50%) scale(${isTapping ? 0.75 : isPinching ? 0.85 : 1})`,
         willChange: 'left, top, transform',
         opacity: visible ? 1 : 0,
       }}
       aria-hidden="true"
     >
       <div className="relative flex items-center justify-center">
-        {/* Outer glowing pulsing ring */}
+        {/* Outer glowing ring */}
         <div
           className={`h-11 w-11 rounded-full border-2 transition-all duration-150 ${
-            isPinching
-              ? 'border-emerald-400 bg-emerald-400/30 shadow-[0_0_24px_rgba(52,211,153,0.95)]'
+            isTapping
+              ? 'border-emerald-400 bg-emerald-400/40 shadow-[0_0_28px_rgba(52,211,153,1)] scale-110'
+              : isDragging
+              ? 'border-cyan-300 bg-cyan-400/25 shadow-[0_0_20px_rgba(6,182,212,0.9)]'
+              : isPinching
+              ? 'border-emerald-400 bg-emerald-400/25 shadow-[0_0_18px_rgba(52,211,153,0.8)]'
               : 'border-cyan-400 bg-cyan-400/15 shadow-[0_0_18px_rgba(6,182,212,0.8)] animate-pulse'
           }`}
         />
 
-        {/* Center core cursor dot */}
+        {/* Center dot */}
         <div
-          className={`absolute h-4 w-4 rounded-full border-2 border-white transition-all duration-150 ${
-            isPinching
+          className={`absolute h-3.5 w-3.5 rounded-full border-2 border-white transition-all duration-150 ${
+            isTapping || isPinching
               ? 'bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,1)]'
               : 'bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,1)]'
           }`}
         />
 
-        {/* Pinch Click Feedback Indicator */}
-        {isPinching && (
-          <div className="absolute -top-6 whitespace-nowrap rounded-full bg-[#1f352d] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-400 shadow-md border border-emerald-400/50">
-            Click
-          </div>
+        {/* Instant Tap Ripple Wave */}
+        {isTapping && (
+          <div className="absolute h-16 w-16 rounded-full border-2 border-emerald-400/80 animate-ping" />
         )}
+
+        {/* Status Indicator Badge */}
+        {isDragging ? (
+          <div className="absolute -top-7 whitespace-nowrap rounded-full bg-[#1f352d] px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-cyan-300 shadow-lg border border-cyan-400/60">
+            Scroll ↕
+          </div>
+        ) : isTapping ? (
+          <div className="absolute -top-7 whitespace-nowrap rounded-full bg-[#1f352d] px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-400 shadow-lg border border-emerald-400/60 animate-bounce">
+            Added!
+          </div>
+        ) : isPinching ? (
+          <div className="absolute -top-7 whitespace-nowrap rounded-full bg-[#1f352d] px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-400 shadow-lg border border-emerald-400/60">
+            Pinch
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -111,7 +111,7 @@ export default function GazeScreen() {
   useEffect(() => {
     return () => {
       if (sessionId) {
-        updateChannel(sessionId, 'gaze_input', false).catch(() => {});
+        updateChannel(sessionId, 'gaze_input', false).catch(() => { });
       }
     };
   }, [sessionId]);
@@ -460,16 +460,6 @@ export default function GazeScreen() {
                   <RefreshCw className="h-3.5 w-3.5 text-[#a76538]" />
                   <span>Center Gaze</span>
                 </button>
-
-                <div className="hidden items-center gap-3 rounded-full border border-[#e7dccd] bg-white px-4 py-2.5 shadow-sm lg:flex">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1f352d] text-[#e9bd67]">
-                    <Eye className="h-4 w-4" />
-                  </div>
-                  <div className="leading-tight">
-                    <p className="text-sm font-bold text-[#2b241f]">Gaze ordering</p>
-                    <p className="text-xs font-medium text-[#928274]">Look at entire card to add</p>
-                  </div>
-                </div>
               </div>
             </div>
           </header>
@@ -503,47 +493,71 @@ export default function GazeScreen() {
             <div className="flex min-h-0 flex-1 overflow-hidden">
               {/* Category Sidebar Navigation with Gaze Dwell */}
               <nav
-                className="premium-scroll w-24 shrink-0 overflow-y-auto border-r border-[#e7dccd] bg-[#f7efe5] px-3 py-5 md:w-56 md:px-5"
+                className="premium-scroll w-24 shrink-0 overflow-y-auto flex flex-col justify-between border-r border-[#e7dccd] bg-[#f7efe5] px-2.5 py-5 md:w-56 md:px-4"
                 aria-label="Menu categories"
               >
-                <div className="hidden px-2 pb-5 md:block">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-[#a76538]">Menu</p>
-                  <p className="mt-1 text-xs font-medium text-[#8c7d70]">Look at course to select</p>
-                </div>
+                <div>
+                  <div className="hidden px-2 pb-5 md:block">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-[#a76538]">Menu</p>
+                    <p className="mt-1 text-xs font-medium text-[#8c7d70]">Look at course to select</p>
+                  </div>
 
-                <div className="space-y-2.5">
-                  {categories.map((cat) => {
-                    const IconComponent = CATEGORY_ICONS[cat.toLowerCase()] || ChefHat;
-                    const isSelected = selectedCategory === cat;
-                    const dwellId = `cat:${cat}`;
-                    const isActive = activeId === dwellId;
+                  <div className="space-y-2.5">
+                    {categories.map((cat) => {
+                      const IconComponent = CATEGORY_ICONS[cat.toLowerCase()] || ChefHat;
+                      const isSelected = selectedCategory === cat;
+                      const dwellId = `cat:${cat}`;
+                      const isActive = activeId === dwellId;
 
-                    return (
-                      <button
-                        key={cat}
-                        type="button"
-                        data-dwell-id={dwellId}
-                        onClick={() => setSelectedCategory(cat)}
-                        className={`group relative flex w-full flex-col items-center gap-2 rounded-[1.35rem] px-2 py-3.5 text-center text-xs font-bold capitalize transition md:flex-row md:px-4 md:py-4 md:text-left md:text-sm ${
-                          isSelected
-                            ? 'bg-[#1f352d] text-white shadow-[0_14px_28px_rgba(31,53,45,.22)]'
-                            : 'text-[#67594f] hover:bg-white hover:shadow-sm'
-                        }`}
-                        aria-current={isSelected ? 'page' : undefined}
-                      >
-                        {isActive && <DwellOverlay progress={progress} className="rounded-[1.35rem]" />}
-                        <span
-                          className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
-                            isSelected ? 'bg-[#2d4d40] text-[#e9bd67]' : 'bg-[#eadfce] text-[#9b6a47]'
-                          }`}
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          data-dwell-id={dwellId}
+                          onClick={() => setSelectedCategory(cat)}
+                          className={`group relative flex w-full flex-col items-center gap-2 rounded-[1.35rem] px-2 py-3.5 text-center text-xs font-bold capitalize transition md:flex-row md:px-4 md:py-4 md:text-left md:text-sm ${isSelected
+                              ? 'bg-[#1f352d] text-white shadow-[0_14px_28px_rgba(31,53,45,.22)]'
+                              : 'text-[#67594f] hover:bg-white hover:shadow-sm'
+                            }`}
+                          aria-current={isSelected ? 'page' : undefined}
                         >
-                          <IconComponent className="h-5 w-5" />
-                        </span>
-                        <span className="max-w-full truncate">{cat}</span>
-                      </button>
-                    );
-                  })}
+                          {isActive && <DwellOverlay progress={progress} className="rounded-[1.35rem]" />}
+                          <span
+                            className={`flex h-11 w-11 items-center justify-center rounded-2xl ${isSelected ? 'bg-[#2d4d40] text-[#e9bd67]' : 'bg-[#eadfce] text-[#9b6a47]'
+                              }`}
+                          >
+                            <IconComponent className="h-5 w-5" />
+                          </span>
+                          <span className="max-w-full truncate">{cat}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+
+                {/* Bottom Left Dwell Cart Button placed well below dessert */}
+                {order?.items?.length > 0 && (
+                  <div className="mt-8 pt-4 border-t border-[#e7dccd]">
+                    <button
+                      type="button"
+                      data-dwell-id="cart:toggle"
+                      onClick={() => setShowMobileCart(!showMobileCart)}
+                      className="relative flex w-full flex-col md:flex-row items-center justify-between gap-2.5 rounded-2xl border border-[#3b554b] bg-[#21382f] p-3.5 text-white shadow-[0_10px_25px_rgba(33,56,47,.35)] transition-all hover:bg-[#172a22] active:scale-95"
+                    >
+                      {activeId === 'cart:toggle' && <DwellOverlay progress={progress} className="rounded-2xl" />}
+                      <div className="flex items-center gap-2.5">
+                        <ShoppingBag className="h-5 w-5 text-[#e8b65a]" />
+                        <div className="text-left hidden md:block">
+                          <p className="text-xs font-bold leading-tight">View Cart</p>
+                          <p className="text-[10px] text-white/70">
+                            {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-black text-[#e8b65a]">{formatPrice(order.total)}</span>
+                    </button>
+                  </div>
+                )}
               </nav>
 
               {/* Main Scrollable Menu Content */}
@@ -597,11 +611,10 @@ export default function GazeScreen() {
                         key={item.id}
                         data-dwell-id={itemDwellId}
                         onClick={() => handleSelect(itemDwellId)}
-                        className={`group relative overflow-hidden rounded-[1.75rem] border-2 bg-white shadow-[0_12px_35px_rgba(70,47,31,.08)] transition-all duration-200 cursor-pointer ${
-                          isActive
+                        className={`group relative overflow-hidden rounded-[1.75rem] border-2 bg-white shadow-[0_12px_35px_rgba(70,47,31,.08)] transition-all duration-200 cursor-pointer ${isActive
                             ? 'border-[#22c55e] shadow-[0_0_30px_rgba(34,197,94,0.35)] scale-[1.02]'
                             : 'border-[#eadfce] hover:-translate-y-1 hover:shadow-[0_24px_55px_rgba(70,47,31,.15)]'
-                        }`}
+                          }`}
                         role="button"
                         aria-label={`Look to add ${item.name} for ${item.price} rupees`}
                       >
@@ -634,9 +647,8 @@ export default function GazeScreen() {
                               <p className="text-xs font-semibold text-[#a2968b]">Look here to add</p>
                             </div>
                             <div
-                              className={`flex h-14 min-w-[8.75rem] items-center justify-center gap-2 rounded-full px-5 text-sm font-bold text-white shadow-[0_10px_20px_rgba(31,53,45,.22)] transition ${
-                                isActive ? 'bg-[#22c55e]' : 'bg-[#1f352d]'
-                              }`}
+                              className={`flex h-14 min-w-[8.75rem] items-center justify-center gap-2 rounded-full px-5 text-sm font-bold text-white shadow-[0_10px_20px_rgba(31,53,45,.22)] transition ${isActive ? 'bg-[#22c55e]' : 'bg-[#1f352d]'
+                                }`}
                             >
                               <Plus className="h-4 w-4 stroke-[3]" />
                               Add
@@ -653,157 +665,121 @@ export default function GazeScreen() {
         </section>
       </div>
 
-      {/* Floating Bottom Cart Bar with Gaze Dwell */}
-      {order?.items?.length > 0 && (
-        <>
-          <div className="fixed inset-x-0 bottom-0 z-50 pointer-events-none">
-            <button
-              type="button"
-              data-dwell-id="cart:toggle"
-              onClick={() => setShowMobileCart(!showMobileCart)}
-              className="pointer-events-auto relative mx-auto mb-5 flex w-[92%] max-w-md items-center justify-between rounded-2xl border-2 border-[#3b554b] bg-[#21382f] px-5 py-3.5 font-bold text-white shadow-[0_12px_35px_rgba(33,56,47,.30)] transition-all duration-200 hover:bg-[#172a22] active:scale-[0.98]"
-              aria-label="Look here to view or review your order"
-            >
-              {activeId === 'cart:toggle' && <DwellOverlay progress={progress} className="rounded-2xl" />}
+      {/* Dwell-Accessible Cart Drawer / Summary */}
+      {order?.items?.length > 0 && showMobileCart && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#211b17]/60 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-xl max-h-[85vh] overflow-y-auto overscroll-contain rounded-[2rem] border-2 border-[#e5d9c8] bg-[#fffaf3] p-6 shadow-2xl space-y-5">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[#e5d9c8] pb-4">
               <div className="flex items-center gap-3">
-                <ShoppingBag className="h-6 w-6 text-[#e8b65a]" />
-                <div className="text-left">
-                  <p className="text-sm md:text-base font-bold">View your order</p>
-                  <p className="text-xs text-white/70">
-                    {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
-                  </p>
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1f352d] text-[#e9bd67]">
+                  <ReceiptText className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#a76538]">Your table</p>
+                  <h2 className="font-display text-2xl font-bold text-[#2a201a]">Order Summary</h2>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="font-display text-lg font-semibold text-[#e8b65a]">
-                  {formatPrice(order?.total || 0)}
-                </span>
-                <ChevronUp
-                  className={`h-5 w-5 text-white/75 transition-transform duration-300 ${
-                    showMobileCart ? 'rotate-180' : ''
-                  }`}
-                />
-              </div>
-            </button>
-          </div>
 
-          {/* Dwell-Accessible Cart Drawer / Summary */}
-          {showMobileCart && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#211b17]/60 p-4 backdrop-blur-sm">
-              <div className="relative w-full max-w-xl max-h-[85vh] overflow-y-auto overscroll-contain rounded-[2rem] border-2 border-[#e5d9c8] bg-[#fffaf3] p-6 shadow-2xl space-y-5">
-                {/* Header */}
-                <div className="flex items-center justify-between border-b border-[#e5d9c8] pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1f352d] text-[#e9bd67]">
-                      <ReceiptText className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#a76538]">Your table</p>
-                      <h2 className="font-display text-2xl font-bold text-[#2a201a]">Order Summary</h2>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    data-dwell-id="cart:close"
-                    onClick={() => setShowMobileCart(false)}
-                    className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[#f3eadf] text-[#5f5044] hover:bg-[#eadbc9]"
-                    aria-label="Close cart"
-                  >
-                    {activeId === 'cart:close' && <DwellOverlay progress={progress} className="rounded-full" />}
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-
-                {/* Items list with Dwellable [+] and [-] buttons */}
-                <div className="space-y-3.5 max-h-[45vh] overflow-y-auto pr-1">
-                  {order.items.map((item) => {
-                    const incDwellId = `cart:inc:${item.id || item.menu_item_id}`;
-                    const decDwellId = `cart:dec:${item.id || item.menu_item_id}`;
-                    const isIncActive = activeId === incDwellId;
-                    const isDecActive = activeId === decDwellId;
-
-                    return (
-                      <div
-                        key={item.id || item.menu_item_id}
-                        className="rounded-2xl border border-[#ebe0d1] bg-white p-4 shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <h3 className="font-display text-lg font-bold text-[#2a201a]">{item.item_name}</h3>
-                            <p className="text-xs text-[#95877a]">{formatPrice(item.unit_price)} each</p>
-                          </div>
-                          <span className="font-display text-lg font-bold text-[#8b4f2d]">
-                            {formatPrice(item.unit_price * item.quantity)}
-                          </span>
-                        </div>
-
-                        <div className="mt-3 flex items-center justify-between border-t border-[#eee3d4] pt-3">
-                          <span className="text-xs font-semibold text-[#a2968b]">Look at buttons to adjust:</span>
-                          <div className="flex items-center gap-3">
-                            {/* Decrement Button */}
-                            <button
-                              type="button"
-                              data-dwell-id={decDwellId}
-                              onClick={() => handleUpdateQuantity(item, item.quantity - 1)}
-                              disabled={isBusy}
-                              className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-[#f3eadf] text-[#5f5044] hover:bg-[#eadbc9] active:scale-95 disabled:opacity-50"
-                              aria-label={`Look to decrease ${item.item_name}`}
-                            >
-                              {isDecActive && <DwellOverlay progress={progress} className="rounded-xl" />}
-                              {item.quantity === 1 ? (
-                                <Trash2 className="h-5 w-5 text-red-600" />
-                              ) : (
-                                <Minus className="h-5 w-5" />
-                              )}
-                            </button>
-
-                            <span className="w-8 text-center text-lg font-black text-[#2a201a]">{item.quantity}</span>
-
-                            {/* Increment Button */}
-                            <button
-                              type="button"
-                              data-dwell-id={incDwellId}
-                              onClick={() => handleUpdateQuantity(item, item.quantity + 1)}
-                              disabled={isBusy}
-                              className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-[#1f352d] text-white hover:bg-[#16261f] active:scale-95 disabled:opacity-50"
-                              aria-label={`Look to increase ${item.item_name}`}
-                            >
-                              {isIncActive && <DwellOverlay progress={progress} className="rounded-xl" />}
-                              <Plus className="h-5 w-5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Total & Review Order Dwell Action */}
-                <div className="border-t border-[#e5d9c8] pt-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-base font-bold text-[#2a201a]">Amount Payable</span>
-                    <span className="font-display text-3xl font-bold text-[#8b4f2d]">
-                      {formatPrice(order.total || 0)}
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    data-dwell-id="cart:review"
-                    onClick={handleReview}
-                    className="relative flex min-h-touch w-full items-center justify-center gap-3 rounded-full bg-[#b95f35] px-6 text-lg font-bold text-white shadow-xl hover:bg-[#9f4f29] active:scale-[0.98]"
-                    aria-label="Look here to review and confirm your order"
-                  >
-                    {activeId === 'cart:review' && <DwellOverlay progress={progress} className="rounded-full" />}
-                    <span>Proceed to Review</span>
-                    <ArrowRight className="h-5 w-5 stroke-[3]" />
-                  </button>
-                </div>
-              </div>
+              <button
+                type="button"
+                data-dwell-id="cart:close"
+                onClick={() => setShowMobileCart(false)}
+                className="relative flex h-11 w-11 items-center justify-center rounded-full bg-[#f3eadf] text-[#5f5044] hover:bg-[#eadbc9]"
+                aria-label="Close cart"
+              >
+                {activeId === 'cart:close' && <DwellOverlay progress={progress} className="rounded-full" />}
+                <X className="h-5 w-5" />
+              </button>
             </div>
-          )}
-        </>
+
+            {/* Items list with Dwellable [+] and [-] buttons */}
+            <div className="space-y-3.5 max-h-[45vh] overflow-y-auto pr-1">
+              {order.items.map((item) => {
+                const incDwellId = `cart:inc:${item.id || item.menu_item_id}`;
+                const decDwellId = `cart:dec:${item.id || item.menu_item_id}`;
+                const isIncActive = activeId === incDwellId;
+                const isDecActive = activeId === decDwellId;
+
+                return (
+                  <div
+                    key={item.id || item.menu_item_id}
+                    className="rounded-2xl border border-[#ebe0d1] bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-display text-lg font-bold text-[#2a201a]">{item.item_name}</h3>
+                        <p className="text-xs text-[#95877a]">{formatPrice(item.unit_price)} each</p>
+                      </div>
+                      <span className="font-display text-lg font-bold text-[#8b4f2d]">
+                        {formatPrice(item.unit_price * item.quantity)}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between border-t border-[#eee3d4] pt-3">
+                      <span className="text-xs font-semibold text-[#a2968b]">Look at buttons to adjust:</span>
+                      <div className="flex items-center gap-3">
+                        {/* Decrement Button */}
+                        <button
+                          type="button"
+                          data-dwell-id={decDwellId}
+                          onClick={() => handleUpdateQuantity(item, item.quantity - 1)}
+                          disabled={isBusy}
+                          className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-[#f3eadf] text-[#5f5044] hover:bg-[#eadbc9] active:scale-95 disabled:opacity-50"
+                          aria-label={`Look to decrease ${item.item_name}`}
+                        >
+                          {isDecActive && <DwellOverlay progress={progress} className="rounded-xl" />}
+                          {item.quantity === 1 ? (
+                            <Trash2 className="h-5 w-5 text-red-600" />
+                          ) : (
+                            <Minus className="h-5 w-5" />
+                          )}
+                        </button>
+
+                        <span className="w-8 text-center text-lg font-black text-[#2a201a]">{item.quantity}</span>
+
+                        {/* Increment Button */}
+                        <button
+                          type="button"
+                          data-dwell-id={incDwellId}
+                          onClick={() => handleUpdateQuantity(item, item.quantity + 1)}
+                          disabled={isBusy}
+                          className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-[#1f352d] text-white hover:bg-[#16261f] active:scale-95 disabled:opacity-50"
+                          aria-label={`Look to increase ${item.item_name}`}
+                        >
+                          {isIncActive && <DwellOverlay progress={progress} className="rounded-xl" />}
+                          <Plus className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Total & Review Order Dwell Action */}
+            <div className="border-t border-[#e5d9c8] pt-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-bold text-[#2a201a]">Amount Payable</span>
+                <span className="font-display text-3xl font-bold text-[#8b4f2d]">
+                  {formatPrice(order.total || 0)}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                data-dwell-id="cart:review"
+                onClick={handleReview}
+                className="relative flex min-h-touch w-full items-center justify-center gap-3 rounded-full bg-[#b95f35] px-6 text-lg font-bold text-white shadow-xl hover:bg-[#9f4f29] active:scale-[0.98]"
+                aria-label="Look here to review and confirm your order"
+              >
+                {activeId === 'cart:review' && <DwellOverlay progress={progress} className="rounded-full" />}
+                <span>Proceed to Review</span>
+                <ArrowRight className="h-5 w-5 stroke-[3]" />
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

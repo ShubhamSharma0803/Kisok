@@ -263,15 +263,8 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
                 </div>
               </div>
 
-              <div className="hidden items-center gap-3 rounded-full border border-[#e7dccd] bg-white px-4 py-2.5 shadow-sm lg:flex">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#21382f] text-[#e9bd67]">
-                  <Volume2 className="h-4 w-4" />
-                </div>
-                <div className="leading-tight">
-                  <p className="text-sm font-bold text-[#2b241f]">Voice ordering</p>
-                  <p className="text-xs font-medium text-[#928274]">Ready at your table</p>
-                </div>
-              </div>
+              {/* Empty placeholder to keep title left-aligned without voice ordering button */}
+              <div className="w-10"></div>
             </div>
           </header>
 
@@ -303,46 +296,70 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
           {!isLoading && !error && (
             <div className="flex min-h-0 flex-1 overflow-hidden">
               <nav
-                className="premium-scroll w-24 shrink-0 overflow-y-auto border-r border-[#e7dccd] bg-[#f7efe5] px-3 py-5 md:w-56 md:px-5"
+                className="premium-scroll w-24 shrink-0 overflow-y-auto flex flex-col justify-between border-r border-[#e7dccd] bg-[#f7efe5] px-2.5 py-5 md:w-56 md:px-4"
                 aria-label="Menu categories"
               >
-                <div className="hidden px-2 pb-5 md:block">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-[#a76538]">Menu</p>
-                  <p className="mt-1 text-xs font-medium text-[#8c7d70]">Select a course</p>
-                </div>
+                <div>
+                  <div className="hidden px-2 pb-5 md:block">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-[#a76538]">Menu</p>
+                    <p className="mt-1 text-xs font-medium text-[#8c7d70]">Select a course</p>
+                  </div>
 
-                <div className="space-y-2">
-                  {categories.map((cat) => {
-                    const IconComponent = CATEGORY_ICONS[cat.toLowerCase()] || ChefHat;
-                    const isSelected = selectedCategory === cat;
+                  <div className="space-y-2">
+                    {categories.map((cat) => {
+                      const IconComponent = CATEGORY_ICONS[cat.toLowerCase()] || ChefHat;
+                      const isSelected = selectedCategory === cat;
 
-                    return (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setSelectedCategory(cat)}
-                        className={`group flex w-full flex-col items-center gap-2 rounded-[1.35rem] px-2 py-3 text-center text-xs font-bold capitalize transition md:flex-row md:px-4 md:py-4 md:text-left md:text-sm ${
-                          isSelected
-                            ? 'bg-[#1f352d] text-white shadow-[0_14px_28px_rgba(31,53,45,.22)]'
-                            : 'text-[#67594f] hover:bg-white hover:shadow-sm'
-                        }`}
-                        aria-current={isSelected ? 'page' : undefined}
-                      >
-                        <span
-                          className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
-                            isSelected ? 'bg-[#2d4d40] text-[#e9bd67]' : 'bg-[#eadfce] text-[#9b6a47]'
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setSelectedCategory(cat)}
+                          className={`group flex w-full flex-col items-center gap-2 rounded-[1.35rem] px-2 py-3 text-center text-xs font-bold capitalize transition md:flex-row md:px-4 md:py-4 md:text-left md:text-sm ${
+                            isSelected
+                              ? 'bg-[#1f352d] text-white shadow-[0_14px_28px_rgba(31,53,45,.22)]'
+                              : 'text-[#67594f] hover:bg-white hover:shadow-sm'
                           }`}
+                          aria-current={isSelected ? 'page' : undefined}
                         >
-                          <IconComponent className="h-5 w-5" />
-                        </span>
-                        <span className="max-w-full truncate">{cat}</span>
-                      </button>
-                    );
-                  })}
+                          <span
+                            className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
+                              isSelected ? 'bg-[#2d4d40] text-[#e9bd67]' : 'bg-[#eadfce] text-[#9b6a47]'
+                            }`}
+                          >
+                            <IconComponent className="h-5 w-5" />
+                          </span>
+                          <span className="max-w-full truncate">{cat}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+
+                {/* Bottom Left Cart Button placed well below dessert */}
+                {order?.items?.length > 0 && (
+                  <div className="mt-8 pt-4 border-t border-[#e7dccd]">
+                    <button
+                      type="button"
+                      onClick={() => setShowMobileCart(!showMobileCart)}
+                      className="flex w-full flex-col md:flex-row items-center justify-between gap-2.5 rounded-2xl border border-[#3b554b] bg-[#21382f] p-3.5 text-white shadow-[0_10px_25px_rgba(33,56,47,.35)] transition-all hover:bg-[#172a22] active:scale-95"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <ShoppingBag className="h-5 w-5 text-[#e8b65a]" />
+                        <div className="text-left hidden md:block">
+                          <p className="text-xs font-bold leading-tight">View Cart</p>
+                          <p className="text-[10px] text-white/70">
+                            {order.items.length} {order.items.length === 1 ? 'item' : 'items'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-black text-[#e8b65a]">{formatPrice(order.total)}</span>
+                    </button>
+                  </div>
+                )}
               </nav>
 
-              <div className="premium-scroll min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-[#fbf6ef] px-5 pb-28 pt-5 md:px-8 md:pb-8 lg:px-10">
+              <div className="premium-scroll min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-[#fbf6ef] px-5 pb-12 pt-5 md:px-8 md:pb-8 lg:px-10">
                 <div className="relative mb-7 overflow-hidden rounded-[2rem] bg-[#1f352d] p-5 text-white shadow-[0_24px_55px_rgba(46,31,20,.16)] md:p-7">
                   <img
                     src={featuredItem?.image_url || FALLBACK_IMAGES[selectedCategory] || FALLBACK_IMAGES.all}
@@ -426,56 +443,32 @@ export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
         </section>
       </div>
 
-      {order?.items?.length > 0 && (
-  <>
-    {/* Blinkit-style floating cart button */}
-    <div className="fixed inset-x-0 bottom-0 z-50 pointer-events-none">
-      <button
-        type="button"
-        onClick={() => setShowMobileCart(!showMobileCart)}
-        className="pointer-events-auto mx-auto mb-5 flex w-[92%] max-w-md items-center justify-between rounded-2xl border border-[#3b554b] bg-[#21382f] px-5 py-3.5 font-bold text-white shadow-[0_12px_35px_rgba(33,56,47,.30)] transition-all duration-200 hover:bg-[#172a22] active:scale-[0.98]"
-      >
-        <div className="flex items-center gap-3">
-          <ShoppingBag className="h-6 w-6 text-[#e8b65a]" />
-
-          <div className="text-left">
-            <p className="text-sm md:text-base font-bold">
-              View your order
-            </p>
-            <p className="text-xs text-white/70">
-              {order.items.length}{' '}
-              {order.items.length === 1 ? 'item' : 'items'}
-            </p>
+      {/* Floating cart drawer */}
+      {order?.items?.length > 0 && showMobileCart && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl max-h-[80vh] overflow-y-auto overscroll-contain rounded-[2rem] border border-[#e5d9c8] bg-[#fffaf3] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#e7dccd] px-6 py-4">
+              <div className="flex items-center gap-2.5">
+                <ShoppingBag className="h-5 w-5 text-[#8b5e34]" />
+                <h3 className="font-display text-xl font-bold text-[#2a201a]">Your Order Cart</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMobileCart(false)}
+                className="rounded-full bg-[#eadfce] px-3 py-1 text-xs font-bold text-[#67594f] hover:bg-[#ded1be]"
+              >
+                Close
+              </button>
+            </div>
+            <CartSummary
+              order={order}
+              onUpdateQuantity={handleUpdateQuantity}
+              onReviewOrder={handleReview}
+              isUpdating={isUpdatingOrder}
+            />
           </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <span className="font-display text-lg font-semibold text-[#e8b65a]">
-            {formatPrice(order?.total || 0)}
-          </span>
-
-          <ChevronUp
-            className={`h-5 w-5 text-white/75 transition-transform duration-300 ${
-              showMobileCart ? 'rotate-180' : ''
-            }`}
-          />
-        </div>
-      </button>
-    </div>
-
-    {/* Floating cart popup */}
-    {showMobileCart && (
-        <div className="pointer-events-auto fixed bottom-[78px] left-1/2 z-50 w-[92%] max-w-xl max-h-[70vh] -translate-x-1/2 overflow-y-auto overscroll-contain rounded-[1.75rem] border border-[#e5d9c8] bg-[#fffaf3] shadow-2xl">
-        <CartSummary
-          order={order}
-          onUpdateQuantity={handleUpdateQuantity}
-          onReviewOrder={handleReview}
-          isUpdating={isUpdatingOrder}
-        />
-      </div>
-    )}
-  </>
-)}
+      )}
   
 
       {modifierItem && (
