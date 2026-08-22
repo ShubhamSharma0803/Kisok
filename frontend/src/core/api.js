@@ -192,30 +192,25 @@ export async function triggerHandoff(sessionId) {
   });
 }
 
-export async function resolveHandoff(sessionId, uiEmphasis) {
+export async function resolveHandoff(sessionId) {
   return request(`/sessions/${sessionId}/resolve-handoff`, {
     method: 'POST',
-    body: JSON.stringify({ ui_emphasis: uiEmphasis }),
   });
 }
 
-export async function narrateScreen(sessionId, screen, context = {}, pushWs = true) {
+export async function narrateScreen(sessionId, screen, context = {}) {
   return request(`/sessions/${sessionId}/narrate`, {
     method: 'POST',
-    body: JSON.stringify({ screen, context, push_ws: pushWs }),
+    body: JSON.stringify({ screen, context }),
   });
 }
 
 export async function triggerScreenNarration(sessionId, screen, context = {}) {
   try {
-    const res = await narrateScreen(sessionId, screen, context, true);
+    const res = await narrateScreen(sessionId, screen, context);
     if (res?.tts_audio_b64) {
       const audio = new Audio(`data:audio/mp3;base64,${res.tts_audio_b64}`);
-      audio.play().catch(() => {});
-    }
-    // Also dispatch local caption event immediately as defensive fallback
-    if (res?.narration && typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('kiosk:show_caption', { detail: { text: res.narration } }));
+      audio.play().catch(() => { });
     }
     return res;
   } catch (err) {

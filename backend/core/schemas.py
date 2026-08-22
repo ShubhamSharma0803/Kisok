@@ -58,6 +58,3 @@ class AddItemRequest(BaseModel):
 
 class UpdateItemQuantityRequest(BaseModel):
     quantity: int
-
-class ResolveHandoffRequest(BaseModel):
-    ui_emphasis: UIEmphasis
