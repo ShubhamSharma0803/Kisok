@@ -40,17 +40,14 @@ const AirGestureContext = createContext({
 export const useAirGestures = () => useContext(AirGestureContext);
 
 // Interaction Tunings
-const LERP_ALPHA = 0.35; // Snappy cursor smoothing
-const TAP_COOLDOWN_MS = 400; // Cooldown after air-tap to avoid accidental multi-clicks
-const SWIPE_WINDOW_MS = 250; // Rolling time window to measure hand swipe velocity
-const SWIPE_THRESHOLD = 0.13; // Minimum vertical displacement for swipe detection
-const SWIPE_COOLDOWN_MS = 500; // Debounce after swipe action
-const SCROLL_AMOUNT_PX = 450; // Smooth scroll step amount
+const LERP_ALPHA = 0.35; // Cursor smoothing factor
+const TAP_COOLDOWN_MS = 400; // Cooldown between consecutive taps
+const SWIPE_STEP_PX = 420; // Smooth step amount for fast flicks
 
 export function AirGestureProvider({ children }) {
   const location = useLocation();
 
-  // Disabled ONLY in Gaze Mode to prevent cursor & dwell conflicts
+  // Disabled strictly on Gaze Mode to avoid cursor & dwell collisions
   const isGazeRoute = location.pathname === '/gaze';
 
   const [handDetected, setHandDetected] = useState(false);
@@ -70,14 +67,14 @@ export function AirGestureProvider({ children }) {
     y: typeof window !== 'undefined' ? window.innerHeight / 2 : 400,
   });
 
-  const prevIndexTipRef = useRef(null);
+  // Tap state machine refs
+  const fingerStateRef = useRef('extended'); // 'extended' | 'pressed'
   const lastTapTimeRef = useRef(0);
+  const prevHandPosRef = useRef(null);
   const lastSwipeTimeRef = useRef(0);
-  const wristHistoryRef = useRef([]); // [{ time, y }]
   const isHandVisibleRef = useRef(false);
 
   useEffect(() => {
-    // If we're on the Gaze Route, unmount/pause everything
     if (isGazeRoute) {
       setHandDetected(false);
       setIsTapping(false);
@@ -86,7 +83,6 @@ export function AirGestureProvider({ children }) {
 
     let isCancelled = false;
 
-    // Create off-screen video element for webcam capture
     let video = videoRef.current;
     if (!video) {
       video = document.createElement('video');
@@ -151,8 +147,8 @@ export function AirGestureProvider({ children }) {
               isHandVisibleRef.current = false;
               setHandDetected(false);
               setIsTapping(false);
-              wristHistoryRef.current = [];
-              prevIndexTipRef.current = null;
+              fingerStateRef.current = 'extended';
+              prevHandPosRef.current = null;
             }
             return;
           }
@@ -170,24 +166,21 @@ export function AirGestureProvider({ children }) {
           const indexPip = landmarks[6];
           // Landmark 5: Index MCP Knuckle
           const indexMcp = landmarks[5];
-          // Landmark 12: Middle Fingertip (Reference)
-          const middleTip = landmarks[12];
           // Landmark 0: Wrist
           const wrist = landmarks[0];
           // Landmark 9: Middle MCP (Palm Center)
-          const middleMcp = landmarks[9];
+          const palm = landmarks[9] || wrist;
 
-          if (!indexTip || !wrist) return;
+          if (!indexTip || !wrist || !indexPip) return;
 
-          // 1. Mirrored Horizontal Position Mapping for natural interaction
+          // 1. Mirrored Horizontal Position Mapping
           const rawTargetX = (1.0 - indexTip.x) * screenW;
           const rawTargetY = indexTip.y * screenH;
 
-          // Soft Clamping to Viewport Bounds
           const targetX = Math.max(10, Math.min(screenW - 10, rawTargetX));
           const targetY = Math.max(10, Math.min(screenH - 10, rawTargetY));
 
-          // 2. LERP Smoothing (alpha = 0.35)
+          // 2. LERP Cursor Smoothing
           const prev = cursorRef.current;
           const nextX = prev.x + (targetX - prev.x) * LERP_ALPHA;
           const nextY = prev.y + (targetY - prev.y) * LERP_ALPHA;
@@ -195,78 +188,83 @@ export function AirGestureProvider({ children }) {
           cursorRef.current = { x: nextX, y: nextY };
           setCursor({ x: nextX, y: nextY });
 
-          // 3. Natural Finger Air-Tap Detection
-          // Detect sharp downward/forward index finger press motion relative to knuckle/hand plane
-          let isTapAction = false;
+          // 3. Wrist Movement & Swipe Velocity Calculation
+          const currentHandY = (wrist.y + palm.y) / 2.0;
+          const currentHandX = (wrist.x + palm.x) / 2.0;
 
-          if (indexPip && indexMcp && prevIndexTipRef.current) {
-            const dt = Math.max(16, now - prevIndexTipRef.current.time);
-            const downwardVelocity = (indexTip.y - prevIndexTipRef.current.y) / (dt / 1000); // normalized unit/sec
-            const forwardDepth = (indexTip.z || 0) - (indexMcp.z || 0);
+          let wristSpeed = 0;
+          let deltaY = 0;
 
-            // Relative finger bend / dip
-            const relativeDip = (indexTip.y - indexPip.y);
-            const dipVsMiddle = middleTip ? (indexTip.y - middleTip.y) : 0;
+          if (prevHandPosRef.current) {
+            const dx = currentHandX - prevHandPosRef.current.x;
+            const dy = currentHandY - prevHandPosRef.current.y;
+            deltaY = dy;
+            wristSpeed = Math.hypot(dx, dy);
+          }
 
-            // Trigger criteria: sharp downward velocity + dip or forward depth press
-            if ((downwardVelocity > 0.45 && (relativeDip > 0.015 || dipVsMiddle > 0.025)) || forwardDepth < -0.055) {
-              isTapAction = true;
+          // 4. Natural Finger Air-Tap Detection (State Machine)
+          // When clicking: The wrist/palm is relatively STILL, while the index finger presses down and releases.
+          const isWristStill = wristSpeed < 0.035;
+
+          // Extension distance: indexPip.y - indexTip.y (Positive when finger is pointing up/extended)
+          const extensionDist = indexPip.y - indexTip.y;
+
+          if (fingerStateRef.current === 'extended') {
+            // Finger presses down: tip moves level with or below PIP knuckle while wrist is held still
+            if (extensionDist < 0.008 && isWristStill) {
+              fingerStateRef.current = 'pressed';
+
+              if (now - lastTapTimeRef.current >= TAP_COOLDOWN_MS) {
+                lastTapTimeRef.current = now;
+                setIsTapping(true);
+                setTimeout(() => setIsTapping(false), 220);
+
+                // Dispatch native click at current cursor position
+                const hitElement = document.elementFromPoint(nextX, nextY);
+                if (hitElement) {
+                  const clickable = hitElement.closest(
+                    'button, a, input, select, textarea, [role="button"], [data-clickable], article, .clickable'
+                  ) || hitElement;
+
+                  clickable.click();
+                }
+              }
+            }
+          } else if (fingerStateRef.current === 'pressed') {
+            // Re-arm state: Finger must be lifted back up into extended pose
+            if (extensionDist > 0.03) {
+              fingerStateRef.current = 'extended';
             }
           }
 
-          prevIndexTipRef.current = { y: indexTip.y, z: indexTip.z || 0, time: now };
-
-          if (isTapAction && now - lastTapTimeRef.current >= TAP_COOLDOWN_MS) {
-            lastTapTimeRef.current = now;
-            setIsTapping(true);
-            setTimeout(() => setIsTapping(false), 200);
-
-            // Dispatch native click to target element under air cursor
-            const hitElement = document.elementFromPoint(nextX, nextY);
-            if (hitElement) {
-              const clickable = hitElement.closest(
-                'button, a, input, select, textarea, [role="button"], [data-clickable], article, .clickable'
-              ) || hitElement;
-
-              clickable.click();
-            }
-          }
-
-          // 4. Vertical Hand Swipe Gesture (Scrolling)
-          const handCenterY = (wrist.y + (middleMcp ? middleMcp.y : wrist.y)) / 2.0;
-          wristHistoryRef.current.push({ time: now, y: handCenterY });
-
-          // Clean buffer older than SWIPE_WINDOW_MS (250ms)
-          wristHistoryRef.current = wristHistoryRef.current.filter((entry) => now - entry.time <= SWIPE_WINDOW_MS);
-
-          if (wristHistoryRef.current.length >= 3 && now - lastSwipeTimeRef.current >= SWIPE_COOLDOWN_MS) {
-            const oldest = wristHistoryRef.current[0];
-            const deltaY = handCenterY - oldest.y; // Negative = Upward hand motion, Positive = Downward hand motion
-
-            if (deltaY < -SWIPE_THRESHOLD) {
-              // Rapid Hand Swipe UP -> Scroll Page UP
+          // 5. Natural Vertical Hand Swipe / Air Drag Scrolling
+          // When moving hand up or down (wrist & fingers moving together)
+          if (prevHandPosRef.current && wristSpeed > 0.025) {
+            // A. Fast Flick Gesture
+            if (Math.abs(deltaY) > 0.055 && now - lastSwipeTimeRef.current >= 450) {
               lastSwipeTimeRef.current = now;
-              wristHistoryRef.current = []; // Reset after trigger
+              const scrollStep = deltaY < 0 ? -SWIPE_STEP_PX : SWIPE_STEP_PX;
 
-              window.scrollBy({ top: -SCROLL_AMOUNT_PX, behavior: 'smooth' });
+              window.scrollBy({ top: scrollStep, behavior: 'smooth' });
 
               const scrollTarget = document.elementFromPoint(nextX, nextY)?.closest('.overflow-y-auto, .overflow-y-scroll, main');
               if (scrollTarget && scrollTarget !== document.body) {
-                scrollTarget.scrollBy({ top: -SCROLL_AMOUNT_PX, behavior: 'smooth' });
+                scrollTarget.scrollBy({ top: scrollStep, behavior: 'smooth' });
               }
-            } else if (deltaY > SWIPE_THRESHOLD) {
-              // Rapid Hand Swipe DOWN -> Scroll Page DOWN
-              lastSwipeTimeRef.current = now;
-              wristHistoryRef.current = []; // Reset after trigger
-
-              window.scrollBy({ top: SCROLL_AMOUNT_PX, behavior: 'smooth' });
+            }
+            // B. Continuous Hand Drag Scrolling
+            else if (Math.abs(deltaY) > 0.012 && Math.abs(deltaY) <= 0.055) {
+              const scrollAmount = deltaY * screenH * 1.6;
+              window.scrollBy({ top: scrollAmount, behavior: 'auto' });
 
               const scrollTarget = document.elementFromPoint(nextX, nextY)?.closest('.overflow-y-auto, .overflow-y-scroll, main');
               if (scrollTarget && scrollTarget !== document.body) {
-                scrollTarget.scrollBy({ top: SCROLL_AMOUNT_PX, behavior: 'smooth' });
+                scrollTarget.scrollBy({ top: scrollAmount, behavior: 'auto' });
               }
             }
           }
+
+          prevHandPosRef.current = { x: currentHandX, y: currentHandY, time: now };
         });
 
         handsRef.current = hands;
@@ -320,21 +318,20 @@ export function AirGestureProvider({ children }) {
   return (
     <AirGestureContext.Provider value={{ handDetected, isTapping, cursor }}>
       {children}
-      {/* Global Air Reticle Cursor (Unmounted in Gaze Mode) */}
       {!isGazeRoute && <AirGestureCursor visible={handDetected} isTapping={isTapping} cursor={cursor} />}
     </AirGestureContext.Provider>
   );
 }
 
 /**
- * Sleek Glowing Cyan / Emerald Air Tap Reticle with Ripple
+ * Clean Cyan / Emerald Air Tap Reticle with Ripple
  */
 function AirGestureCursor({ visible, isTapping, cursor }) {
   if (!visible) return null;
 
   return (
     <div
-      className="fixed pointer-events-none z-[99999] transition-transform duration-100 ease-out"
+      className="fixed pointer-events-none z-[99999] transition-transform duration-75 ease-out"
       style={{
         left: `${cursor.x}px`,
         top: `${cursor.y}px`,
@@ -345,34 +342,27 @@ function AirGestureCursor({ visible, isTapping, cursor }) {
       aria-hidden="true"
     >
       <div className="relative flex items-center justify-center">
-        {/* Outer glowing ring */}
+        {/* Glowing ring */}
         <div
-          className={`h-11 w-11 rounded-full border-2 transition-all duration-150 ${
+          className={`h-10 w-10 rounded-full border-2 transition-all duration-150 ${
             isTapping
-              ? 'border-emerald-400 bg-emerald-400/35 shadow-[0_0_26px_rgba(52,211,153,1)] scale-110'
-              : 'border-cyan-400 bg-cyan-400/15 shadow-[0_0_18px_rgba(6,182,212,0.8)] animate-pulse'
+              ? 'border-emerald-400 bg-emerald-400/35 shadow-[0_0_24px_rgba(52,211,153,1)] scale-110'
+              : 'border-cyan-400 bg-cyan-400/15 shadow-[0_0_16px_rgba(6,182,212,0.75)]'
           }`}
         />
 
-        {/* Center core cursor dot */}
+        {/* Center dot */}
         <div
-          className={`absolute h-4 w-4 rounded-full border-2 border-white transition-all duration-150 ${
+          className={`absolute h-3.5 w-3.5 rounded-full border-2 border-white transition-all duration-150 ${
             isTapping
-              ? 'bg-emerald-300 shadow-[0_0_14px_rgba(110,231,183,1)]'
+              ? 'bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,1)]'
               : 'bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,1)]'
           }`}
         />
 
-        {/* Ripple Wave on Tap */}
+        {/* Tap Ripple */}
         {isTapping && (
-          <div className="absolute h-16 w-16 rounded-full border-2 border-emerald-400/60 animate-ping" />
-        )}
-
-        {/* Tap Feedback Badge */}
-        {isTapping && (
-          <div className="absolute -top-7 whitespace-nowrap rounded-full bg-[#1f352d] px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-400 shadow-lg border border-emerald-400/60 animate-bounce">
-            Tap
-          </div>
+          <div className="absolute h-14 w-14 rounded-full border-2 border-emerald-400/70 animate-ping" />
         )}
       </div>
     </div>
