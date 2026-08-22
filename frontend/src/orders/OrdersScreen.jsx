@@ -71,7 +71,7 @@ function MenuItemImage({ src, alt, category }) {
 
 export default function OrdersScreen({ onReviewOrder, onBackToStart }) {
   const navigate = useNavigate();
-  const { sessionId, sessionMode, initSession } = useSession();
+  const { sessionId, initSession } = useSession();
   const { reportFailedTap } = useHandoff();
   const { subscribe } = useSessionSocket(sessionId);
 

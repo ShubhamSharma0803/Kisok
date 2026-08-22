@@ -9,7 +9,7 @@ import { HelpCircle, LifeBuoy, AlertTriangle } from 'lucide-react';
 const HandoffContext = createContext(null);
 
 export const HandoffProvider = ({ children }) => {
-  const { sessionId, sessionStatus, setSessionMode } = useSession();
+  const { sessionId, sessionStatus, setUiEmphasis } = useSession();
   const { subscribe } = useSessionSocket(sessionId);
 
   const [isHandedOff, setIsHandedOff] = useState(false);
@@ -74,7 +74,7 @@ export const HandoffProvider = ({ children }) => {
       console.log('[HandoffProvider] WebSocket mode_change event received:', payload);
       const nextEmphasis = payload?.ui_emphasis || payload?.mode;
       if (nextEmphasis) {
-        setSessionMode(nextEmphasis);
+        setUiEmphasis(nextEmphasis);
       }
     });
 
@@ -82,7 +82,7 @@ export const HandoffProvider = ({ children }) => {
       unsubHandoff();
       unsubMode();
     };
-  }, [sessionId, subscribe, setSessionMode]);
+  }, [sessionId, subscribe, setUiEmphasis]);
 
   // 5. Periodic orchestrator state polling (every 10 seconds)
   useEffect(() => {

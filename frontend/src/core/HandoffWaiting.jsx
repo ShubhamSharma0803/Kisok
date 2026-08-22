@@ -13,7 +13,7 @@ const ROUTE_MAP = {
 
 export default function HandoffWaiting({ onResumeOrdering }) {
   const navigate = useNavigate();
-  const { sessionId, setSessionMode } = useSession();
+  const { sessionId, setUiEmphasis } = useSession();
   const { subscribe } = useSessionSocket(sessionId);
 
   const [statusMessage, setStatusMessage] = useState('Notifying a team member for assistance...');
@@ -40,7 +40,7 @@ export default function HandoffWaiting({ onResumeOrdering }) {
       if (state && state.status === 'active') {
         setIsActiveConfirmed(true);
         setStatusMessage('Attendant assistance completed. You can return to ordering.');
-        if (state.ui_emphasis) setSessionMode(state.ui_emphasis);
+        if (state.ui_emphasis) setUiEmphasis(state.ui_emphasis);
       } else {
         setIsActiveConfirmed(false);
       }
@@ -49,7 +49,7 @@ export default function HandoffWaiting({ onResumeOrdering }) {
     } finally {
       setIsCheckingState(false);
     }
-  }, [sessionId, setSessionMode]);
+  }, [sessionId, setUiEmphasis]);
 
   useEffect(() => {
     checkStatus();
@@ -76,7 +76,7 @@ export default function HandoffWaiting({ onResumeOrdering }) {
     const unsubMode = subscribe('mode_change', (payload) => {
       const nextEmphasis = payload?.ui_emphasis || payload?.mode;
       if (nextEmphasis) {
-        setSessionMode(nextEmphasis);
+        setUiEmphasis(nextEmphasis);
       }
     });
 
@@ -85,7 +85,7 @@ export default function HandoffWaiting({ onResumeOrdering }) {
       unsubError();
       unsubMode();
     };
-  }, [sessionId, subscribe, setSessionMode]);
+  }, [sessionId, subscribe, setUiEmphasis]);
 
   const handleSimulateResolve = async (uiEmphasis) => {
     if (!sessionId) return;

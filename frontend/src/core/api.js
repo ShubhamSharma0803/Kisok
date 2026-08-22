@@ -199,6 +199,28 @@ export async function resolveHandoff(sessionId, uiEmphasis) {
   });
 }
 
+export async function updateDetection(sessionId, uiEmphasis, confidence, source = 'camera_auto', reason = null) {
+  return request(`/sessions/${sessionId}/detection`, {
+    method: 'POST',
+    body: JSON.stringify({
+      ui_emphasis: uiEmphasis,
+      confidence,
+      source,
+      reason,
+    }),
+  });
+}
+
+export async function updateChannel(sessionId, channel, value) {
+  return request(`/sessions/${sessionId}/channel`, {
+    method: 'POST',
+    body: JSON.stringify({
+      channel,
+      value,
+    }),
+  });
+}
+
 export async function narrateScreen(sessionId, screen, context = {}) {
   return request(`/sessions/${sessionId}/narrate`, {
     method: 'POST',

@@ -14,6 +14,7 @@ from core.schemas import (
 from core.ws_manager import manager
 from core.events import EventType
 from core.enums import OrderStatus
+from core.orchestrator import increment_successful_action
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ async def add_item(session_id: str, body: AddItemRequest, db: DBSession = Depend
 
     db.commit()
     db.refresh(order)
+    increment_successful_action(session_id)
 
     response = _order_response(order)
     await manager.send_event(session_id, EventType.order_updated, response)
@@ -124,6 +126,7 @@ async def update_item_quantity(
 
     db.commit()
     db.refresh(order)
+    increment_successful_action(session_id)
 
     response = _order_response(order)
     await manager.send_event(session_id, EventType.order_updated, response)
@@ -158,6 +161,7 @@ async def delete_item(
     db.delete(order_item)
     db.commit()
     db.refresh(order)
+    increment_successful_action(session_id)
 
     response = _order_response(order)
     await manager.send_event(session_id, EventType.order_updated, response)
@@ -179,6 +183,7 @@ async def confirm_order(session_id: str, db: DBSession = Depends(get_db)):
     order.status = OrderStatus.confirmed
     db.commit()
     db.refresh(order)
+    increment_successful_action(session_id)
 
     response = _order_response(order)
     await manager.send_event(session_id, EventType.order_confirmed, response)

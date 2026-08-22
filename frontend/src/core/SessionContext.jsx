@@ -98,9 +98,6 @@ export const SessionProvider = ({ children }) => {
     initSession,
     setUiEmphasis: updateUiEmphasis,
     resetSession,
-    // Aliases for transition compatibility
-    sessionMode: uiEmphasis,
-    setSessionMode: updateUiEmphasis,
   };
 
   return (

@@ -7,9 +7,10 @@ const COOLDOWN_MS = 600; // 600ms cooldown after dwell trigger to avoid double-a
 /**
  * High-Performance Dwell Selection Hook using document.elementFromPoint
  */
-export function useDwellSelect({ gaze, onSelect, enabled = true, dwellTimeMs = DWELL_MS }) {
+export function useDwellSelect({ gaze, onSelect, onFailedDwell, enabled = true, dwellTimeMs = DWELL_MS }) {
   const [activeId, setActiveId] = useState(null);
   const [progress, setProgress] = useState(0);
+  const [failedDwellCount, setFailedDwellCount] = useState(0);
 
   const activeIdRef = useRef(null);
   const dwellStartRef = useRef(null);
@@ -65,9 +66,14 @@ export function useDwellSelect({ gaze, onSelect, enabled = true, dwellTimeMs = D
         leaveTimeRef.current = null;
         setActiveId(null);
         setProgress(0);
+        setFailedDwellCount((prev) => {
+          const next = prev + 1;
+          onFailedDwell?.(next);
+          return next;
+        });
       }
     }
-  }, [gaze, enabled]);
+  }, [gaze, enabled, onFailedDwell]);
 
   // 3. Continuous Dwell Timer Loop
   useEffect(() => {
@@ -88,6 +94,7 @@ export function useDwellSelect({ gaze, onSelect, enabled = true, dwellTimeMs = D
         leaveTimeRef.current = null;
         setActiveId(null);
         setProgress(0);
+        setFailedDwellCount(0); // Reset consecutive failed dwells on successful action
 
         if (selectedId && onSelect) {
           onSelect(selectedId);
@@ -101,7 +108,7 @@ export function useDwellSelect({ gaze, onSelect, enabled = true, dwellTimeMs = D
     return () => cancelAnimationFrame(rafRef.current);
   }, [activeId, onSelect, dwellTimeMs]);
 
-  return { activeId, progress };
+  return { activeId, progress, failedDwellCount };
 }
 
 /**

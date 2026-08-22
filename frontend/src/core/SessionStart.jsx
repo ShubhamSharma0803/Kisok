@@ -4,6 +4,8 @@ import { useSession } from './SessionContext';
 import { RefreshCw, AlertCircle } from 'lucide-react';
 import CinematicIntro from './CinematicIntro';
 
+import { updateDetection } from './api';
+
 const DECISION_MAP = {
   'Gaze Mode': { route: '/gaze', emphasis: 'gaze_active' },
   'Big Icons Mode': { route: '/large-ui', emphasis: 'big_icons' },
@@ -30,21 +32,34 @@ export default function SessionStart({ onNavigate }) {
     }
   }, [sessionId, isLoadingSession, sessionError, initSession]);
 
-  // 2. Handle intro completion with detected mode decision
+  // 2. Handle intro completion with detected mode decision & confidence gating
   const handleSplashComplete = useCallback(
-    (decision) => {
+    async (decision, confidence = 0.5, reason = null) => {
       setShowOrderSplash(false);
 
       const mapping = DECISION_MAP[decision] || DECISION_MAP['Simple Touch Mode'];
-      setUiEmphasis(mapping.emphasis);
+      const isLowConfidence = confidence < 0.75;
+      const finalEmphasis = isLowConfidence ? 'standard_touch' : mapping.emphasis;
+      const finalRoute = isLowConfidence ? '/order' : mapping.route;
+      const finalSource = isLowConfidence ? 'camera_auto_low_confidence_fallback' : 'camera_auto';
 
-      if (onNavigate) {
-        onNavigate(mapping.emphasis);
+      if (sessionId) {
+        try {
+          await updateDetection(sessionId, finalEmphasis, confidence, finalSource, reason);
+        } catch (err) {
+          console.warn('[SessionStart] Failed to persist detection to DB:', err);
+        }
       }
 
-      navigate(mapping.route);
+      setUiEmphasis(finalEmphasis);
+
+      if (onNavigate) {
+        onNavigate(finalEmphasis);
+      }
+
+      navigate(finalRoute);
     },
-    [navigate, onNavigate, setUiEmphasis]
+    [sessionId, navigate, onNavigate, setUiEmphasis]
   );
 
   return (

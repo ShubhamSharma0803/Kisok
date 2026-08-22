@@ -61,3 +61,13 @@ class UpdateItemQuantityRequest(BaseModel):
 
 class ResolveHandoffRequest(BaseModel):
     ui_emphasis: UIEmphasis
+
+class DetectionUpdateRequest(BaseModel):
+    ui_emphasis: UIEmphasis
+    confidence: float
+    source: str = "camera_auto"
+    reason: Optional[str] = None
+
+class ChannelUpdateRequest(BaseModel):
+    channel: str
+    value: bool

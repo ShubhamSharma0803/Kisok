@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSession } from '../core/SessionContext';
+import { updateDetection, updateChannel } from '../core/api';
 import { Eye, Hand, Accessibility, ChevronDown } from 'lucide-react';
 
 const MODE_OPTIONS = [
@@ -45,7 +46,17 @@ export default function ModeOverride() {
   const current = MODE_OPTIONS.find((m) => m.emphasis === uiEmphasis) || MODE_OPTIONS[0];
   const CurrentIcon = current.icon;
 
-  const handleSelect = (option) => {
+  const handleSelect = async (option) => {
+    if (sessionId) {
+      try {
+        await updateDetection(sessionId, option.emphasis, 1.0, 'manual_override', null);
+        if (uiEmphasis === 'gaze_active' && option.emphasis !== 'gaze_active') {
+          await updateChannel(sessionId, 'gaze_input', false);
+        }
+      } catch (err) {
+        console.warn('[ModeOverride] Failed to persist manual override to DB:', err);
+      }
+    }
     setUiEmphasis(option.emphasis);
     setIsOpen(false);
     navigate(option.route);

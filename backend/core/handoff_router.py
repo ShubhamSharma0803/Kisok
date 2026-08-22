@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as DBSession
 from core.database import get_db
-from core.models import Session, HandoffLog, utcnow
+from core.models import Session, HandoffLog, utcnow, DEFAULT_ACTIVE_CHANNELS
 from core.enums import SessionStatus, HandoffReason
-from core.orchestrator import increment_failed_tap, evaluate_rules, get_idle_seconds
+from core.orchestrator import increment_failed_tap, evaluate_rules, get_idle_seconds, maybe_confirm_detection
 from core.ws_manager import manager
 from core.events import EventType
-from core.schemas import ResolveHandoffRequest
+from core.schemas import ResolveHandoffRequest, DetectionUpdateRequest, ChannelUpdateRequest
 
 router = APIRouter(tags=["handoff"])
 
@@ -24,8 +24,9 @@ async def report_failed_tap(session_id: str, db: DBSession = Depends(get_db)):
     return {"failed_tap_count": count, "idle_seconds": get_idle_seconds(session)}
 
 @router.get("/sessions/{session_id}/orchestrator-state")
-def get_orchestrator_state(session_id: str, db: DBSession = Depends(get_db)):
+async def get_orchestrator_state(session_id: str, db: DBSession = Depends(get_db)):
     session = _get_session_or_404(db, session_id)
+    await maybe_confirm_detection(db, session)
     from core.orchestrator import _failed_tap_counts
     return {
         "failed_tap_count": _failed_tap_counts.get(session_id, 0),
@@ -94,3 +95,55 @@ async def resolve_handoff(session_id: str, payload: ResolveHandoffRequest, db: D
         "failed_tap_count": 0,
         "idle_seconds": get_idle_seconds(session),
     }
+
+@router.post("/sessions/{session_id}/detection")
+async def update_detection(session_id: str, payload: DetectionUpdateRequest, db: DBSession = Depends(get_db)):
+    session = _get_session_or_404(db, session_id)
+
+    session.ui_emphasis = payload.ui_emphasis
+    session.detection_confidence = payload.confidence
+    session.detection_source = payload.source
+    session.detection_set_at = utcnow()
+
+    db.commit()
+    db.refresh(session)
+
+    await manager.send_event(
+        session_id,
+        EventType.mode_change,
+        {"ui_emphasis": session.ui_emphasis, "status": session.status},
+    )
+
+    return {
+        "id": session.id,
+        "status": session.status,
+        "ui_emphasis": session.ui_emphasis,
+        "active_channels": session.active_channels,
+        "detection_confidence": session.detection_confidence,
+        "detection_source": session.detection_source,
+        "detection_set_at": session.detection_set_at,
+        "failed_tap_count": 0,
+        "idle_seconds": get_idle_seconds(session),
+    }
+
+@router.post("/sessions/{session_id}/channel")
+async def update_channel(session_id: str, payload: ChannelUpdateRequest, db: DBSession = Depends(get_db)):
+    session = _get_session_or_404(db, session_id)
+
+    if payload.channel not in DEFAULT_ACTIVE_CHANNELS:
+        raise HTTPException(status_code=400, detail=f"Invalid channel: {payload.channel}")
+
+    channels = dict(session.active_channels)
+    channels[payload.channel] = payload.value
+    session.active_channels = channels
+
+    db.commit()
+    db.refresh(session)
+
+    await manager.send_event(
+        session_id,
+        EventType.mode_change,
+        {"active_channels": session.active_channels},
+    )
+
+    return session.active_channels

@@ -8,7 +8,9 @@ export default function CinematicIntro({ onComplete }) {
   const hasCompleted = useRef(false);
   const timerRef = useRef(null);
   const wsRef = useRef(null);
-  const decisionRef = useRef(null);
+  const decisionRef = useRef('Simple Touch Mode');
+  const confidenceRef = useRef(0.5);
+  const reasonRef = useRef(null);
   const decisionReceivedRef = useRef(false);
   const [progressPct, setProgressPct] = useState(0);
   const [scanning, setScanning] = useState(false);
@@ -24,7 +26,9 @@ export default function CinematicIntro({ onComplete }) {
       wsRef.current = null;
     }
     const decision = decisionRef.current || 'Simple Touch Mode';
-    onComplete?.(decision);
+    const confidence = typeof confidenceRef.current === 'number' ? confidenceRef.current : 0.5;
+    const reason = reasonRef.current || null;
+    onComplete?.(decision, confidence, reason);
   }, [onComplete]);
 
   // 1. Connect WebSocket detection on mount
@@ -48,8 +52,12 @@ export default function CinematicIntro({ onComplete }) {
 
           if (msg.type === 'final_decision') {
             const decision = msg.data?.decision || 'Simple Touch Mode';
-            console.log('[CinematicIntro] Detection decision:', decision, msg.data);
+            const confidence = typeof msg.data?.confidence === 'number' ? msg.data.confidence : 0.5;
+            const reason = msg.data?.reason || msg.data?.sub_reason || msg.data?.metrics?.reason || null;
+            console.log('[CinematicIntro] Detection decision:', decision, confidence, reason, msg.data);
             decisionRef.current = decision;
+            confidenceRef.current = confidence;
+            reasonRef.current = reason;
             decisionReceivedRef.current = true;
           }
         } catch (err) {

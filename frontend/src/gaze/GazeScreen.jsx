@@ -10,6 +10,8 @@ import {
   updateOrderItemQuantity,
   deleteOrderItem,
   triggerScreenNarration,
+  updateDetection,
+  updateChannel,
 } from '../core/api';
 import { setNarrationContext } from '../core/screenNarration';
 import { useGazeTracking } from './useGazeTracking';
@@ -101,7 +103,18 @@ export default function GazeScreen() {
   // Scroll container ref for hands-free gaze scrolling
   const scrollContainerRef = useRef(null);
 
-  const { gaze, status, resetCenter } = useGazeTracking({ enabled: true });
+  const { gaze, status, resetCenter } = useGazeTracking({ enabled: true, sessionId });
+  const [failedDwells, setFailedDwells] = useState(0);
+  const fallbackTriggeredRef = useRef(false);
+
+  // When unmounting or leaving GazeScreen, ensure gaze_input channel is set to false
+  useEffect(() => {
+    return () => {
+      if (sessionId) {
+        updateChannel(sessionId, 'gaze_input', false).catch(() => {});
+      }
+    };
+  }, [sessionId]);
 
   // Keyboard shortcut: Pressing 'c' or 'Space' re-centers the gaze neutral baseline
   useEffect(() => {
@@ -283,9 +296,40 @@ export default function GazeScreen() {
   const { activeId, progress } = useDwellSelect({
     gaze,
     onSelect: handleSelect,
+    onFailedDwell: (count) => setFailedDwells(count),
     enabled: phase === 'ordering' && !isBusy,
     dwellTimeMs: 1300,
   });
+
+  // Watch for calibration failure or 3 failed dwell attempts -> Fallback to touch
+  useEffect(() => {
+    if (fallbackTriggeredRef.current) return;
+
+    const isCalibFailed = status === 'calibration_failed' || status === 'denied' || status === 'error';
+    const isDwellsFailed = failedDwells >= 3;
+
+    if (isCalibFailed || isDwellsFailed) {
+      fallbackTriggeredRef.current = true;
+      const reason = isCalibFailed
+        ? `gaze_calibration_failed_${status}`
+        : 'failed_dwell_limit_exceeded_3';
+      console.warn(`[GazeScreen] Fallback triggered due to: ${reason}`);
+
+      const performFallback = async () => {
+        if (sessionId) {
+          try {
+            await updateDetection(sessionId, 'standard_touch', 0.5, 'gaze_calibration_failed', reason);
+            await updateChannel(sessionId, 'gaze_input', false);
+          } catch (err) {
+            console.warn('[GazeScreen] Failed to update fallback in DB:', err);
+          }
+        }
+        navigate('/order');
+      };
+
+      performFallback();
+    }
+  }, [status, failedDwells, sessionId, navigate]);
 
   const handleUpdateQuantity = async (item, newQuantity) => {
     if (!sessionId || !item?.id) return;

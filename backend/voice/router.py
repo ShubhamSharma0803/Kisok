@@ -22,6 +22,7 @@ from core.enums import HandoffReason
 from core.handoff_router import perform_handoff
 from core.ws_manager import manager
 from core.events import EventType
+from core.orchestrator import increment_successful_action
 
 from voice import stt, llm, tts
 from voice import pending_actions
@@ -402,15 +403,19 @@ async def process_voice(
 
             elif action == "add_item":
                 reply = _apply_intent(db, order, action, intent, detected_lang)
+                increment_successful_action(session_id)
 
             elif action == "modify_item":
                 reply = _apply_intent(db, order, action, intent, detected_lang)
+                increment_successful_action(session_id)
 
             elif action == "remove_item":
                 reply = _apply_intent(db, order, action, intent, detected_lang)
+                increment_successful_action(session_id)
 
             elif action == "confirm_order":
                 reply = _apply_intent(db, order, action, intent, detected_lang)
+                increment_successful_action(session_id)
 
             elif action == "cancel_order":
                 reply = _apply_intent(db, order, action, intent, detected_lang)

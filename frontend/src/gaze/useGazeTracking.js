@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { updateChannel } from '../core/api';
 
 const FACEMESH_SCRIPT = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js';
 
@@ -46,12 +47,12 @@ const SCREEN_MARGIN_PX = 25;
 // Baseline calibration frames
 const CALIBRATION_FRAMES = 8;
 
-export function useGazeTracking({ enabled = true }) {
+export function useGazeTracking({ enabled = true, sessionId = null }) {
   const [gaze, setGaze] = useState(() => ({
     x: typeof window !== 'undefined' ? window.innerWidth / 2 : 500,
     y: typeof window !== 'undefined' ? window.innerHeight / 2 : 400,
   }));
-  const [status, setStatus] = useState('loading'); // loading | ready | denied | error
+  const [status, setStatus] = useState('loading'); // loading | ready | calibration_failed | denied | error
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -65,6 +66,16 @@ export function useGazeTracking({ enabled = true }) {
 
   const frameCountRef = useRef(0);
   const baselineRef = useRef(null); // { nose: {x, y}, iris: {x, y} }
+  const sessionIdRef = useRef(sessionId);
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+    if (sessionId && status === 'ready') {
+      updateChannel(sessionId, 'gaze_input', true).catch((err) => {
+        console.warn('[useGazeTracking] Failed to set gaze_input=true on late session init:', err);
+      });
+    }
+  }, [sessionId, status]);
 
   const resetCenter = useCallback(() => {
     frameCountRef.current = 0;
@@ -84,6 +95,29 @@ export function useGazeTracking({ enabled = true }) {
     setStatus('loading');
     frameCountRef.current = 0;
     baselineRef.current = null;
+
+    // 15-second calibration timeout
+    const timeoutId = setTimeout(() => {
+      if (!isCancelled) {
+        setStatus((prev) => {
+          if (prev !== 'ready') {
+            console.warn('[useGazeTracking] 15s calibration timeout exceeded -> calibration_failed');
+            return 'calibration_failed';
+          }
+          return prev;
+        });
+      }
+    }, 15000);
+
+    const markReady = () => {
+      setStatus('ready');
+      const currentSid = sessionIdRef.current;
+      if (currentSid) {
+        updateChannel(currentSid, 'gaze_input', true).catch((err) => {
+          console.warn('[useGazeTracking] Failed to set gaze_input=true:', err);
+        });
+      }
+    };
 
     // 1. Create hidden offscreen video element for real-time camera frames
     let video = videoRef.current;
@@ -182,7 +216,7 @@ export function useGazeTracking({ enabled = true }) {
               const initialCenter = { x: screenW / 2, y: screenH / 2 };
               cursorRef.current = initialCenter;
               setGaze(initialCenter);
-              setStatus('ready');
+              markReady();
             }
             return;
           }
@@ -242,11 +276,10 @@ export function useGazeTracking({ enabled = true }) {
         };
 
         processFrame();
-        setStatus('ready');
       } catch (err) {
         console.error('[useGazeTracking] Camera/FaceMesh initialization error:', err);
         if (!isCancelled) {
-          setStatus(err.name === 'NotAllowedError' ? 'denied' : 'error');
+          setStatus('calibration_failed');
         }
       }
     }
@@ -255,6 +288,7 @@ export function useGazeTracking({ enabled = true }) {
 
     return () => {
       isCancelled = true;
+      clearTimeout(timeoutId);
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
       }

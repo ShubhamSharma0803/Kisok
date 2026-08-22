@@ -12,7 +12,7 @@ import { repeatNarrationForCurrentScreen } from './screenNarration';
  * - If payload.text is present: renders it immediately as a caption overlay.
  * - If payload.request_repeat is true: re-calls the narration API for the current screen.
  *
- * Caption is NOT gated behind any ui_emphasis / sessionMode check — it is always-on
+ * Caption is NOT gated behind any ui_emphasis check — it is always-on
  * per PRODUCT_SPEC.md Section 3 ("captions are always on, in every layout").
  *
  * NOTE: EventType.caption remains defined in the enum but has zero backend emission points
