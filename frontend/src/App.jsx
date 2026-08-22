@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { SessionProvider, useSession } from './core/SessionContext';
 import { HandoffProvider } from './core/HandoffProvider';
@@ -10,6 +10,7 @@ import PaymentScreen from './orders/PaymentScreen';
 import ThankYouScreen from './orders/ThankYouScreen';
 import VoiceScreen from './voice/VoiceScreen';
 import LargeUIScreen from './orders/LargeUIScreen';
+import IntroVideo from './components/IntroVideo';
 import { Eye, ShoppingCart, ArrowLeft } from 'lucide-react';
 
 /**
@@ -65,10 +66,15 @@ function GazeActivePlaceholder() {
  * BrowserRouter -> SessionProvider -> HandoffProvider -> Routes
  */
 export default function App() {
+  const [showIntro, setShowIntro] = useState(true);
+
   return (
     <BrowserRouter>
       <SessionProvider>
         <HandoffProvider>
+          {showIntro && (
+            <IntroVideo onComplete={() => setShowIntro(false)} />
+          )}
           <Routes>
             <Route path="/" element={<SessionStart />} />
             <Route path="/order" element={<OrdersScreen />} />

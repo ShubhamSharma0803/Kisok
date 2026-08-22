@@ -14,7 +14,7 @@ import {
 
 import { triggerScreenNarration } from './api';
 
-import OrderSplashAnimation from "../components/OrderSplashAnimation";
+
 
 /**
  * Mode cards metadata matching SessionMode backend enums:
@@ -86,7 +86,7 @@ export default function SessionStart({ onNavigate }) {
 
   const [isListening, setIsListening] = useState(false);
   const [speechDetected, setSpeechDetected] = useState(false);
-  const [showOrderSplash, setShowOrderSplash] = useState(true);
+
   const recognitionRef = useRef(null);
   const audioContextRef = useRef(null);
   const streamRef = useRef(null);
@@ -274,11 +274,7 @@ export default function SessionStart({ onNavigate }) {
   aria-label="Kiosk Session Start"
 
 >
-  {showOrderSplash && (
-  <OrderSplashAnimation
-    onComplete={() => setShowOrderSplash(false)}
-  />
-  )}
+
   {/* Premium background accents */}  
 <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-[#e8dccb]/40 blur-3xl pointer-events-none" />
 
