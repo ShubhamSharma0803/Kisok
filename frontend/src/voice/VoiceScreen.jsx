@@ -117,12 +117,28 @@ export default function VoiceScreen() {
       }
     });
 
+    const unsubError = subscribe('error', (payload) => {
+      if (payload?.message) {
+        setLatestCaption(payload.message);
+      }
+      setVoiceState((current) => (current === 'processing' || current === 'listening' ? 'idle' : current));
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      if (maxRecordTimerRef.current) {
+        clearTimeout(maxRecordTimerRef.current);
+        maxRecordTimerRef.current = null;
+      }
+    });
+
     return () => {
       unsubTranscript();
       unsubCaption();
       unsubOrder();
       unsubProcessing();
       unsubNavigate();
+      unsubError();
     };
   }, [sessionId, subscribe, navigate]);
 

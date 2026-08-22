@@ -1,3 +1,38 @@
+## Verified as of 2026-08-23
+
+### Step 8 — Reliability Layer (Kiosk Vision AI) Status: COMPLETE ✅
+
+- **STT Failure Handling (`backend/voice/stt.py`, `backend/voice/router.py`)**:
+  - Wrapped Gladia STT pipeline (`_upload_audio`, `_submit_transcription`, `_poll_result`, and `transcribe()`) in custom `STTError` exception encapsulation with server-side logging.
+  - On STT failure, `POST /sessions/{id}/voice` emits WebSocket `EventType.error` with `source: "stt"` and `message: "Sorry, I couldn't hear that clearly. Please try again."`.
+  - Returns standard HTTP 200 with `action: "unclear"` and fallback message, preserving client state machines.
+- **LLM Intent-Parsing Failure Handling (`backend/voice/llm.py`, `backend/voice/router.py`)**:
+  - Encapsulated Groq API calls and intent parsing in custom `LLMError` exception handling.
+  - On LLM failure, emits WebSocket `EventType.error` with `source: "llm"` and returns standard HTTP 200 with `action: "unclear"` and user-facing fallback message.
+- **TTS Failure Handling & Noise Threshold (`backend/voice/tts.py`, `backend/voice/router.py`, `backend/vision/narration_engine.py`)**:
+  - Wrapped `speak()` in try/except returning `b""` on failure, preventing crashes across voice router and screen narration engine.
+  - Returns response with text/caption intact and `tts_audio_b64: ""` when audio generation fails (maintaining always-on captions).
+  - Designed consecutive failure tracker (`_consecutive_tts_failures`): single transient failure gracefully omits audio without noisy alerts; repeated failure (>= 2 consecutive drops) emits `EventType.error` with `source: "tts"`.
+- **Frontend WebSocket Exponential Backoff Reconnection (`frontend/src/core/useSessionSocket.js`)**:
+  - Implemented auto-reconnect with exponential backoff starting at 1000ms, doubling on disconnect, capped at 30,000ms.
+  - Resets backoff delay to 1000ms on successful connection.
+- **Touch & HTTP Ordering Flow Independence**:
+  - Audited and verified all HTTP-based flows (menu fetch, add/update/delete order items, order confirmation, payment generation) function 100% independently with 0 WebSocket dependencies.
+- **Frontend Error Event Handling (`frontend/src/core/HandoffWaiting.jsx`, `frontend/src/voice/VoiceScreen.jsx`)**:
+  - `HandoffWaiting.jsx`: Surfaces incoming `error` event message in live status badge.
+  - `VoiceScreen.jsx`: Subscribes to `error` event, updates live caption overlay, and clears listening/processing state back to `idle` with timers cleared.
+
+**Verification Results**:
+- ✅ Automated failure injection test suite (`verify_step8_reliability.py`):
+  1. STT failure: HTTP 200 with `action: "unclear"` + WS `error` event with `source: "stt"`.
+  2. LLM failure: HTTP 200 with `action: "unclear"` + WS `error` event with `source: "llm"`.
+  3. TTS failure: Audio omitted (`tts_audio_b64: ""`), captions delivered, consecutive drop (>=2) emitted WS `error` event with `source: "tts"`.
+  4. WS drop: Full HTTP touch ordering flow (menu fetch -> add item -> update qty -> confirm order -> create payment) verified 100% working while WS is closed.
+  5. Happy path: Normal voice ordering turn verified with intact transcript, order update, and TTS.
+- ✅ Frontend production build: `npm run build` completed with 0 errors.
+
+---
+
 ## Verified as of 2026-08-22
 
 ### Phase A — Step 1: Session Model Migration Status: COMPLETE ✅

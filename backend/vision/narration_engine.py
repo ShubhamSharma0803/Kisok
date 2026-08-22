@@ -152,7 +152,7 @@ async def narrate(
 
     # 4. TTS via Person 1's pipeline (run in thread so event loop isn't blocked)
     audio_bytes = await asyncio.to_thread(speak, text, lang)
-    audio_b64 = base64.b64encode(audio_bytes).decode()
+    audio_b64 = base64.b64encode(audio_bytes).decode() if audio_bytes else ""
 
     result = {
         "narration": text,

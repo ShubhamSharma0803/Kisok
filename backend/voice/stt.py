@@ -31,6 +31,11 @@ def _headers():
     return {"x-gladia-key": GLADIA_API_KEY}
 
 
+class STTError(Exception):
+    """Raised when speech-to-text processing fails."""
+    pass
+
+
 def _upload_audio(audio_path: str) -> str:
     """Uploads a local audio file to Gladia, returns the audio_url to transcribe."""
     print("[stt] Step 1/3: uploading audio to Gladia...")
@@ -40,15 +45,24 @@ def _upload_audio(audio_path: str) -> str:
     if content_type is None:
         content_type = "application/octet-stream"
 
-    with open(audio_path, "rb") as f:
-        files = {"audio": (os.path.basename(audio_path), f, content_type)}
-        response = requests.post(f"{BASE_URL}/upload", headers=_headers(), files=files)
+    try:
+        with open(audio_path, "rb") as f:
+            files = {"audio": (os.path.basename(audio_path), f, content_type)}
+            response = requests.post(f"{BASE_URL}/upload", headers=_headers(), files=files, timeout=30)
 
-    if not response.ok:
-        print("Gladia upload error response:", response.text)
-    response.raise_for_status()
-    print(f"[stt] Upload done in {time.time() - start:.1f}s")
-    return response.json()["audio_url"]
+        if not response.ok:
+            print("[stt] Gladia upload error response:", response.text)
+        response.raise_for_status()
+        data = response.json()
+        if "audio_url" not in data:
+            raise STTError("Gladia upload response missing audio_url")
+        print(f"[stt] Upload done in {time.time() - start:.1f}s")
+        return data["audio_url"]
+    except Exception as e:
+        print(f"[stt] Upload failed: {e}")
+        if isinstance(e, STTError):
+            raise
+        raise STTError(f"STT audio upload failed: {e}") from e
 
 
 def _submit_transcription(audio_url: str) -> str:
@@ -62,14 +76,26 @@ def _submit_transcription(audio_url: str) -> str:
         "detect_language": True,
         "enable_code_switching": True,  # critical for Hindi-English mid-sentence mixing
     }
-    response = requests.post(
-        f"{BASE_URL}/pre-recorded",
-        headers={**_headers(), "Content-Type": "application/json"},
-        json=payload,
-    )
-    response.raise_for_status()
-    print(f"[stt] Job submitted in {time.time() - start:.1f}s")
-    return response.json()["id"]
+    try:
+        response = requests.post(
+            f"{BASE_URL}/pre-recorded",
+            headers={**_headers(), "Content-Type": "application/json"},
+            json=payload,
+            timeout=30,
+        )
+        if not response.ok:
+            print("[stt] Gladia job submission error response:", response.text)
+        response.raise_for_status()
+        data = response.json()
+        if "id" not in data:
+            raise STTError("Gladia job submission response missing job id")
+        print(f"[stt] Job submitted in {time.time() - start:.1f}s")
+        return data["id"]
+    except Exception as e:
+        print(f"[stt] Job submission failed: {e}")
+        if isinstance(e, STTError):
+            raise
+        raise STTError(f"STT transcription submission failed: {e}") from e
 
 
 def _poll_result(job_id: str, timeout_seconds: int = 90, poll_interval: float = 2.0) -> dict:
@@ -78,21 +104,26 @@ def _poll_result(job_id: str, timeout_seconds: int = 90, poll_interval: float = 
     start = time.time()
     elapsed = 0.0
     while elapsed < timeout_seconds:
-        response = requests.get(f"{BASE_URL}/transcription/{job_id}", headers=_headers())
-        response.raise_for_status()
-        data = response.json()
-        print(f"[stt] Poll at {elapsed:.0f}s -> status: {data['status']}")
+        try:
+            response = requests.get(f"{BASE_URL}/transcription/{job_id}", headers=_headers(), timeout=20)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as e:
+            print(f"[stt] Poll request error at {elapsed:.0f}s: {e}")
+            raise STTError(f"STT poll request error: {e}") from e
 
-        if data["status"] == "done":
+        print(f"[stt] Poll at {elapsed:.0f}s -> status: {data.get('status')}")
+
+        if data.get("status") == "done":
             print(f"[stt] Transcription completed in {time.time() - start:.1f}s total")
             return data
-        elif data["status"] == "error":
-            raise RuntimeError(f"Gladia transcription failed: {data.get('error_code')}")
+        elif data.get("status") == "error":
+            raise STTError(f"Gladia transcription failed: {data.get('error_code')}")
 
         time.sleep(poll_interval)
         elapsed += poll_interval
 
-    raise TimeoutError("Gladia transcription did not finish in time")
+    raise STTError("Gladia transcription did not finish in time")
 
 
 def transcribe(audio_path: str) -> dict:
@@ -105,25 +136,31 @@ def transcribe(audio_path: str) -> dict:
             "language": detected primary language code,
         }
     """
-    audio_url = _upload_audio(audio_path)
-    job_id = _submit_transcription(audio_url)
-    result = _poll_result(job_id)
+    try:
+        audio_url = _upload_audio(audio_path)
+        job_id = _submit_transcription(audio_url)
+        result = _poll_result(job_id)
 
-    transcription = result["result"]["transcription"]
-    full_text = transcription["full_transcript"].strip()
+        transcription = result.get("result", {}).get("transcription", {})
+        full_text = transcription.get("full_transcript", "").strip()
 
-    # Try Gladia's own language metadata first.
-    languages = result["result"].get("metadata", {}).get("languages", [])
-    detected_lang = languages[0] if languages else None
+        # Try Gladia's own language metadata first.
+        languages = result.get("result", {}).get("metadata", {}).get("languages", [])
+        detected_lang = languages[0] if languages else None
 
-    # Fallback heuristic: if Gladia's language field is missing/unhelpful, check
-    # whether the transcript itself contains Devanagari script — reliable signal
-    # for Hindi/Hinglish speech, since gTTS only needs to know "hi" vs "en" anyway.
-    if not detected_lang or detected_lang == "unknown":
-        has_devanagari = any("\u0900" <= ch <= "\u097F" for ch in full_text)
-        detected_lang = "hi" if has_devanagari else "en"
+        # Fallback heuristic: if Gladia's language field is missing/unhelpful, check
+        # whether the transcript itself contains Devanagari script — reliable signal
+        # for Hindi/Hinglish speech, since gTTS only needs to know "hi" vs "en" anyway.
+        if not detected_lang or detected_lang == "unknown":
+            has_devanagari = any("\u0900" <= ch <= "\u097F" for ch in full_text)
+            detected_lang = "hi" if has_devanagari else "en"
 
-    return {
-        "text": full_text,
-        "language": detected_lang,
-    }
+        return {
+            "text": full_text,
+            "language": detected_lang,
+        }
+    except Exception as e:
+        print(f"[stt] transcribe failed: {e}")
+        if isinstance(e, STTError):
+            raise
+        raise STTError(f"STT pipeline error: {e}") from e

@@ -69,7 +69,7 @@ export default function HandoffWaiting({ onResumeOrdering }) {
 
     const unsubError = subscribe('error', (payload) => {
       if (payload?.message) {
-        setStatusMessage('We are still notifying an attendant. Someone will be with you shortly.');
+        setStatusMessage(payload.message);
       }
     });
 

@@ -85,50 +85,61 @@ Rules:
 """
 
 
+class LLMError(Exception):
+    """Raised when LLM intent parsing fails."""
+    pass
+
+
 def parse_order_intent(transcript: str, menu: dict, cart_state: list) -> dict:
     """
     Sends transcript + context to Groq and returns parsed structured intent.
 
-    Falls back to a safe "unclear" response if the model output isn't valid JSON,
-    since a kiosk should never crash mid-order because of a parsing hiccup.
+    Falls back to raising LLMError if the API or network call fails,
+    or a safe "unclear" response if the model output isn't valid JSON.
     """
-    user_content = json.dumps({
-        "menu": menu["items"],
-        "current_cart": cart_state,
-        "transcript": transcript,
-    }, ensure_ascii=False)
-
-    response = _get_client().chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_content},
-        ],
-        temperature=0.2,
-        max_tokens=500,
-    )
-
-    raw = response.choices[0].message.content.strip()
-
-    # Strip accidental markdown fences, since models sometimes add them anyway
-    if raw.startswith("```"):
-        raw = raw.strip("`")
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-
     try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError:
-        parsed = {
-            "action": "unclear",
-            "items": [],
-            "needs_clarification": True,
-            "clarification_question": "Sorry, I didn't catch that. Could you repeat your order?",
-            "confidence": 0.0,
-        }
+        user_content = json.dumps({
+            "menu": menu["items"],
+            "current_cart": cart_state,
+            "transcript": transcript,
+        }, ensure_ascii=False)
 
-    return parsed
+        response = _get_client().chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_content},
+            ],
+            temperature=0.2,
+            max_tokens=500,
+        )
+
+        raw = response.choices[0].message.content.strip()
+
+        # Strip accidental markdown fences, since models sometimes add them anyway
+        if raw.startswith("```"):
+            raw = raw.strip("`")
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
+
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            parsed = {
+                "action": "unclear",
+                "items": [],
+                "needs_clarification": True,
+                "clarification_question": "Sorry, I didn't catch that. Could you repeat your order?",
+                "confidence": 0.0,
+            }
+
+        return parsed
+    except Exception as e:
+        print(f"[llm] parse_order_intent failed: {e}")
+        if isinstance(e, LLMError):
+            raise
+        raise LLMError(f"LLM intent parsing error: {e}") from e
 
 
 # ---------------------------------------------------------------------------

@@ -30,6 +30,8 @@ export function useSessionSocket(sessionId) {
     const wsUrl = `${WS_BASE_URL}/sessions/${sessionId}/ws`;
     let isComponentMounted = true;
     let reconnectTimeout = null;
+    let currentDelay = 1000;
+    const MAX_BACKOFF = 30000;
 
     function connect() {
       if (!isComponentMounted) return;
@@ -40,6 +42,7 @@ export function useSessionSocket(sessionId) {
 
         ws.onopen = () => {
           console.log(`[useSessionSocket] Connected to ${wsUrl}`);
+          currentDelay = 1000; // Reset backoff on successful connection
         };
 
         ws.onmessage = (event) => {
@@ -68,15 +71,21 @@ export function useSessionSocket(sessionId) {
         };
 
         ws.onclose = () => {
-          console.log('[useSessionSocket] WebSocket closed.');
+          console.log(`[useSessionSocket] WebSocket closed. Reconnecting in ${currentDelay}ms...`);
           socketRef.current = null;
-          // Auto-reconnect after 3 seconds if still mounted
           if (isComponentMounted) {
-            reconnectTimeout = setTimeout(connect, 3000);
+            const nextDelay = currentDelay;
+            currentDelay = Math.min(currentDelay * 2, MAX_BACKOFF);
+            reconnectTimeout = setTimeout(connect, nextDelay);
           }
         };
       } catch (err) {
         console.error('[useSessionSocket] Connection error:', err);
+        if (isComponentMounted) {
+          const nextDelay = currentDelay;
+          currentDelay = Math.min(currentDelay * 2, MAX_BACKOFF);
+          reconnectTimeout = setTimeout(connect, nextDelay);
+        }
       }
     }
 
@@ -86,6 +95,7 @@ export function useSessionSocket(sessionId) {
       isComponentMounted = false;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (socketRef.current) {
+        socketRef.current.onclose = null;
         socketRef.current.close();
         socketRef.current = null;
       }

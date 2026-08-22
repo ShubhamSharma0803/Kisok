@@ -18,12 +18,20 @@ def speak(text: str, lang: str = "en") -> bytes:
 
     lang: "en" for English, "hi" for Hindi. Pick based on what language
     the user has been speaking, or default to "en" if unsure.
+
+    Returns b"" if text is empty or if TTS generation fails.
     """
-    buf = io.BytesIO()
-    tts = gTTS(text=text, lang=lang)
-    tts.write_to_fp(buf)
-    buf.seek(0)
-    return buf.read()
+    if not text or not text.strip():
+        return b""
+    try:
+        buf = io.BytesIO()
+        tts = gTTS(text=text, lang=lang)
+        tts.write_to_fp(buf)
+        buf.seek(0)
+        return buf.read()
+    except Exception as e:
+        print(f"[tts] gTTS audio generation failed: {e}")
+        return b""
 
 
 def build_confirmation_text(cart: list, menu_lookup: dict, lang: str = "en") -> tuple:

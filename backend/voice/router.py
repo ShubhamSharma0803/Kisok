@@ -167,6 +167,63 @@ def _apply_intent(
     return "Sorry, I didn't understand that."
 
 
+# ---- TTS Failure Tracking ----
+_consecutive_tts_failures: dict[str, int] = {}
+
+def _record_tts_success(session_id: str):
+    _consecutive_tts_failures[session_id] = 0
+
+def _record_tts_failure(session_id: str) -> int:
+    count = _consecutive_tts_failures.get(session_id, 0) + 1
+    _consecutive_tts_failures[session_id] = count
+    return count
+
+
+async def _synthesize_and_narrate(
+    session_id: str,
+    text: str,
+    lang: str = "en",
+    source: str = "voice_reply",
+) -> str:
+    """
+    Synthesizes TTS audio for text, tracks failure threshold,
+    emits screen_narration WS event for always-on captions,
+    and returns base64 audio string (or empty string on failure).
+    """
+    import base64
+    tts_b64 = ""
+    if not text:
+        return tts_b64
+
+    tts_audio = tts.speak(text, lang=lang)
+    if tts_audio:
+        tts_b64 = base64.b64encode(tts_audio).decode()
+        _record_tts_success(session_id)
+    else:
+        fail_count = _record_tts_failure(session_id)
+        if fail_count >= 2:
+            await manager.send_event(
+                session_id,
+                EventType.error,
+                {
+                    "source": "tts",
+                    "message": "Voice audio output is unavailable. Captions and touch controls remain active.",
+                },
+            )
+
+    await manager.send_event(
+        session_id,
+        EventType.screen_narration,
+        {
+            "text": text,
+            "tts_audio_b64": tts_b64,
+            "source": source,
+            "highlight_target": None,
+        },
+    )
+    return tts_b64
+
+
 # ---- Endpoints ----
 
 @router.post("")
@@ -184,12 +241,13 @@ async def process_voice(
     - The parsed intent and action taken
     - The updated cart
     - A reply message (text)
-    - TTS audio reply (base64-encoded MP3) — optional, set ?tts=false to skip
+    - TTS audio reply (base64-encoded MP3) — optional
 
-    Also emits WebSocket events: voice_transcript, order_updated.
+    Also emits WebSocket events: voice_transcript, order_updated, screen_narration, error.
     """
     session = _get_session_or_404(db, session_id)
     order = _get_or_create_order(db, session_id)
+    order_data = _order_response(order)
 
     # Save uploaded audio to a temp file for Gladia
     suffix = Path(audio.filename).suffix if audio.filename else ".wav"
@@ -200,24 +258,45 @@ async def process_voice(
 
     try:
         # ---- Step 1: Speech-to-text ----
+        transcript = ""
+        detected_lang = "en"
         try:
             stt_result = stt.transcribe(tmp_path)
-        except (TimeoutError, Exception) as e:
+            transcript = stt_result.get("text", "")
+            detected_lang = stt_result.get("language", "en")
+        except Exception as e:
             print(f"[voice] STT failed: {e}")
-            error_msg = (
-                "That took too long — the voice service might be slow right now. "
-                "Please try speaking again."
+            fallback_msg = "Sorry, I couldn't hear that clearly. Please try again."
+            
+            # Emit WS error event with source: stt
+            await manager.send_event(
+                session_id,
+                EventType.error,
+                {
+                    "source": "stt",
+                    "message": fallback_msg,
+                },
             )
-            tts_audio = tts.speak(error_msg, lang="en")
-            import base64
-            return {
-                "status": "stt_error",
-                "message": error_msg,
-                "tts_audio_b64": base64.b64encode(tts_audio).decode(),
-            }
 
-        transcript = stt_result["text"]
-        detected_lang = stt_result["language"]
+            # Generate TTS fallback if possible and emit screen_narration for captions
+            tts_b64 = await _synthesize_and_narrate(session_id, fallback_msg, lang="en")
+
+            return {
+                "status": "ok",
+                "transcript": "",
+                "language": "en",
+                "intent": {
+                    "action": "unclear",
+                    "items": [],
+                    "needs_clarification": True,
+                    "clarification_question": fallback_msg,
+                    "confidence": 0.0,
+                },
+                "action": "unclear",
+                "message": fallback_msg,
+                "order": order_data,
+                "tts_audio_b64": tts_b64,
+            }
 
         # Emit transcript event via WebSocket
         await manager.send_event(
@@ -228,13 +307,22 @@ async def process_voice(
 
         if not transcript:
             reply = "I didn't catch any speech — try again?"
-            tts_audio = tts.speak(reply, lang="en")
-            import base64
+            tts_b64 = await _synthesize_and_narrate(session_id, reply, lang=detected_lang or "en")
             return {
-                "status": "empty_transcript",
+                "status": "ok",
                 "transcript": "",
+                "language": detected_lang or "en",
+                "intent": {
+                    "action": "unclear",
+                    "items": [],
+                    "needs_clarification": True,
+                    "clarification_question": reply,
+                    "confidence": 0.0,
+                },
+                "action": "unclear",
                 "message": reply,
-                "tts_audio_b64": base64.b64encode(tts_audio).decode(),
+                "order": order_data,
+                "tts_audio_b64": tts_b64,
             }
 
         # ---- Step 2: Resolve pending destructive confirmation OR parse new intent ----
@@ -269,14 +357,35 @@ async def process_voice(
                 intent = llm.parse_order_intent(transcript, MENU, cart_state)
             except Exception as e:
                 print(f"[voice] LLM failed: {e}")
-                reply = "Sorry, I had trouble understanding that. Could you repeat your order?"
-                tts_audio = tts.speak(reply, lang=detected_lang)
-                import base64
+                fallback_msg = "Sorry, I had trouble understanding that. Please try rephrasing or use touch ordering."
+                
+                # Emit WS error event with source: llm
+                await manager.send_event(
+                    session_id,
+                    EventType.error,
+                    {
+                        "source": "llm",
+                        "message": fallback_msg,
+                    },
+                )
+
+                tts_b64 = await _synthesize_and_narrate(session_id, fallback_msg, lang=detected_lang or "en")
+
                 return {
-                    "status": "llm_error",
+                    "status": "ok",
                     "transcript": transcript,
-                    "message": reply,
-                    "tts_audio_b64": base64.b64encode(tts_audio).decode(),
+                    "language": detected_lang or "en",
+                    "intent": {
+                        "action": "unclear",
+                        "items": [],
+                        "needs_clarification": True,
+                        "clarification_question": fallback_msg,
+                        "confidence": 0.0,
+                    },
+                    "action": "unclear",
+                    "message": fallback_msg,
+                    "order": order_data,
+                    "tts_audio_b64": tts_b64,
                 }
 
             action = intent.get("action", "unclear")
@@ -331,7 +440,7 @@ async def process_voice(
                         "text": "",
                         "tts_audio_b64": "",
                         "source": "voice_request",
-                        "highlight_target": None
+                        "highlight_target": None,
                     },
                 )
                 reply = ""
@@ -345,22 +454,9 @@ async def process_voice(
         await manager.send_event(session_id, EventType.order_updated, order_data)
 
         # ---- Step 4: Text-to-speech reply ----
-        import base64
         tts_b64 = ""
         if not skip_tts and reply:
-            tts_audio = tts.speak(reply, lang=detected_lang)
-            tts_b64 = base64.b64encode(tts_audio).decode()
-            # Emit screen_narration with speech text for live caption overlay
-            await manager.send_event(
-                session_id,
-                EventType.screen_narration,
-                {
-                    "text": reply,
-                    "tts_audio_b64": tts_b64,
-                    "source": "voice_reply",
-                    "highlight_target": None
-                }
-            )
+            tts_b64 = await _synthesize_and_narrate(session_id, reply, lang=detected_lang or "en")
 
         return {
             "status": "ok",
@@ -374,7 +470,8 @@ async def process_voice(
         }
 
     finally:
-        os.unlink(tmp_path)
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 @router.get("/cart")
