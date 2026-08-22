@@ -229,16 +229,19 @@ def evaluate_profile(pose_buffer, ear_buffer, iris_buffer, wrist_frames, total_f
         print("[evaluate_profile] No pose or ear buffer -> Fallback Simple Touch Mode")
         return {
             "decision": "Simple Touch Mode",
-            "confidence": 0.5,
+            "confidence": 0.95,
             "reason": "Default fallback (No user detected)"
         }
 
     avg_shoulder_y = float(np.mean([p["shoulder_y"] for p in pose_buffer])) if (pose_buffer and np is not None) else 0.5
     avg_nose_y = float(np.mean([p["nose_y"] for p in pose_buffer])) if (pose_buffer and np is not None) else 0.5
-    avg_ear = float(np.mean(ear_buffer)) if (ear_buffer and np is not None) else 0.0
+    avg_ear = float(np.mean(ear_buffer)) if (ear_buffer and np is not None) else 0.25
 
     total = max(total_frames, 1)
     wrist_ratio = wrist_frames / total
+
+    closed_eye_count = len([e for e in ear_buffer if e < 0.20])
+    closed_eye_ratio = (closed_eye_count / len(ear_buffer)) if ear_buffer else 0.0
 
     # Tremor variance computation
     wrist_pts = [(p["r_wrist_x"], p["r_wrist_y"]) for p in pose_buffer if p.get("r_wrist_x") is not None]
@@ -248,61 +251,63 @@ def evaluate_profile(pose_buffer, ear_buffer, iris_buffer, wrist_frames, total_f
     else:
         tremor_score = 0.0
 
-    # Height classification:
-    # In webcam frame: y=0.0 is top, y=1.0 is bottom.
-    # Standing users have heads close to top of camera frame (nose_y < 0.22, shoulder_y < 0.38).
-    # Sitting / wheelchair users have head in middle/lower frame (nose_y >= 0.22 or shoulder_y >= 0.40).
-    is_tall_standing = (avg_nose_y < 0.22) and (avg_shoulder_y < 0.38)
-    is_seated = (avg_shoulder_y >= 0.40 or avg_nose_y >= 0.22) and not is_tall_standing
+    # Height classification (y=0.0 top, y=1.0 bottom):
+    is_tall_standing = (avg_nose_y < 0.26) and (avg_shoulder_y < 0.44)
+    is_seated = (avg_nose_y >= 0.28 or avg_shoulder_y >= 0.46) and not is_tall_standing
 
     print(
         f"[evaluate_profile] avg_shoulder_y={avg_shoulder_y:.3f}, "
-        f"avg_nose_y={avg_nose_y:.3f}, avg_ear={avg_ear:.3f}, "
-        f"is_seated={is_seated}, is_tall={is_tall_standing}, tremor={tremor_score:.5f}"
+        f"avg_nose_y={avg_nose_y:.3f}, avg_ear={avg_ear:.3f}, closed_ratio={closed_eye_ratio:.2f}, "
+        f"is_seated={is_seated}, is_tall={is_tall_standing}, wrist_ratio={wrist_ratio:.2f}, tremor={tremor_score:.5f}"
     )
 
-    # 1. PRIORITY 1: Visual Impairment (Closed Eyes / Low EAR) -> Voice Guided Touch Mode
-    if avg_ear < 0.16 and len(ear_buffer) > 15:
-        print("[evaluate_profile] Decision: Simple Touch Mode (Voice Guided / Low EAR)")
+    # 1. PRIORITY 1: Visual Impairment / Closed Eyes -> Simple Touch Mode (Voice Guided /order)
+    if (closed_eye_ratio >= 0.35 or avg_ear < 0.19) and len(ear_buffer) >= 8:
+        print("[evaluate_profile] Decision: Simple Touch Mode (Closed Eyes / Visual guidance required)")
         return {
             "decision": "Simple Touch Mode",
             "voice_assistant": True,
             "confidence": 0.95,
-            "metrics": {"avg_ear": round(avg_ear, 3), "reason": "Closed eyes / Visual guidance required"}
+            "reason": "Closed eyes / Visual guidance required",
+            "metrics": {"avg_ear": round(avg_ear, 3), "closed_eye_ratio": round(closed_eye_ratio, 2)}
         }
 
-    # 2. PRIORITY 2: Seated / Wheelchair User (Lower Height / Reach) -> Big Icons Mode
+    # 2. PRIORITY 2: Seated / Wheelchair User (Lower height & reach) -> Big Icons Mode (/large-ui)
     if is_seated:
-        print("[evaluate_profile] Decision: Big Icons Mode (Seated profile)")
+        print("[evaluate_profile] Decision: Big Icons Mode (Seated reach profile)")
         return {
             "decision": "Big Icons Mode",
             "confidence": 0.95,
+            "reason": "Seated / Wheelchair height reach profile",
             "metrics": {"avg_shoulder_y": round(avg_shoulder_y, 3), "avg_nose_y": round(avg_nose_y, 3)}
         }
 
-    # 3. PRIORITY 3: Hand Tremors -> Big Icons Mode
-    if tremor_score > 0.008:
+    # 3. PRIORITY 3: Hand Tremors -> Big Icons Mode (/large-ui)
+    if tremor_score > 0.005:
         print("[evaluate_profile] Decision: Big Icons Mode (Tremor detected)")
         return {
             "decision": "Big Icons Mode",
-            "confidence": 0.90,
-            "metrics": {"tremor_score": round(tremor_score, 5), "sub_reason": "Motor Tremor Detected"}
+            "confidence": 0.95,
+            "reason": "Motor tremor compensation",
+            "metrics": {"tremor_score": round(tremor_score, 5)}
         }
 
-    # 4. PRIORITY 4: Severe Upper Limb Limitation -> Gaze Mode
-    if is_tall_standing and wrist_ratio == 0.0 and len(iris_buffer) > 25 and avg_ear >= 0.18:
-        print("[evaluate_profile] Decision: Gaze Mode")
+    # 4. PRIORITY 4: Hands-free / Upper Limb Limitation -> Gaze Mode (/gaze)
+    if wrist_ratio < 0.15 and len(iris_buffer) >= 10 and avg_ear >= 0.20:
+        print("[evaluate_profile] Decision: Gaze Mode (Hands-free gaze profile)")
         return {
             "decision": "Gaze Mode",
-            "confidence": 0.92,
+            "confidence": 0.95,
+            "reason": "Hands-free gaze interaction profile",
             "metrics": {"wrist_ratio": round(wrist_ratio, 2), "iris_samples": len(iris_buffer)}
         }
 
-    # 5. PRIORITY 5: Standard User -> Simple Touch Mode
-    print("[evaluate_profile] Decision: Simple Touch Mode (Standard)")
+    # 5. PRIORITY 5: Standard User -> Simple Touch Mode (/order)
+    print("[evaluate_profile] Decision: Simple Touch Mode (Standard standing profile)")
     return {
         "decision": "Simple Touch Mode",
         "confidence": 0.96,
+        "reason": "Standard standing touch profile",
         "metrics": {
             "avg_shoulder_y": round(avg_shoulder_y, 3),
             "avg_nose_y": round(avg_nose_y, 3),

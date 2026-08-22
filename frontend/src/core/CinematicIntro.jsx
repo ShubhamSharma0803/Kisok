@@ -2,40 +2,59 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Scan } from 'lucide-react';
 import './CinematicIntro.css';
 
-const WS_URL = 'ws://localhost:8000/ws/detect';
+const getWsUrl = () => {
+  if (import.meta.env.VITE_WS_BASE_URL !== undefined) {
+    return `${import.meta.env.VITE_WS_BASE_URL}/ws/detect`;
+  }
+  if (import.meta.env.DEV) {
+    return 'ws://localhost:8000/ws/detect';
+  }
+  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = typeof window !== 'undefined' ? window.location.host : 'localhost:8000';
+  return `${protocol}//${host}/ws/detect`;
+};
 
 export default function CinematicIntro({ onComplete }) {
   const hasCompleted = useRef(false);
   const timerRef = useRef(null);
   const wsRef = useRef(null);
   const decisionRef = useRef('Simple Touch Mode');
-  const confidenceRef = useRef(0.5);
+  const confidenceRef = useRef(0.95);
   const reasonRef = useRef(null);
-  const decisionReceivedRef = useRef(false);
   const [progressPct, setProgressPct] = useState(0);
   const [scanning, setScanning] = useState(false);
 
-  const finish = useCallback(() => {
-    if (hasCompleted.current) return;
-    hasCompleted.current = true;
-    clearTimeout(timerRef.current);
-    if (wsRef.current) {
-      try {
-        wsRef.current.close();
-      } catch (_) {}
-      wsRef.current = null;
-    }
-    const decision = decisionRef.current || 'Simple Touch Mode';
-    const confidence = typeof confidenceRef.current === 'number' ? confidenceRef.current : 0.5;
-    const reason = reasonRef.current || null;
-    onComplete?.(decision, confidence, reason);
-  }, [onComplete]);
+  const finish = useCallback(
+    (overrideDecision, overrideConfidence, overrideReason) => {
+      if (hasCompleted.current) return;
+      hasCompleted.current = true;
+      clearTimeout(timerRef.current);
+      if (wsRef.current) {
+        try {
+          wsRef.current.close();
+        } catch (_) {}
+        wsRef.current = null;
+      }
+      const decision = overrideDecision || decisionRef.current || 'Simple Touch Mode';
+      const confidence =
+        typeof overrideConfidence === 'number'
+          ? overrideConfidence
+          : typeof confidenceRef.current === 'number'
+          ? confidenceRef.current
+          : 0.95;
+      const reason = overrideReason || reasonRef.current || null;
+      console.log('[CinematicIntro] Completing intro -> Decision:', decision, 'Confidence:', confidence);
+      onComplete?.(decision, confidence, reason);
+    },
+    [onComplete]
+  );
 
   // 1. Connect WebSocket detection on mount
   useEffect(() => {
     let ws;
     try {
-      ws = new WebSocket(WS_URL);
+      const url = getWsUrl();
+      ws = new WebSocket(url);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -52,13 +71,13 @@ export default function CinematicIntro({ onComplete }) {
 
           if (msg.type === 'final_decision') {
             const decision = msg.data?.decision || 'Simple Touch Mode';
-            const confidence = typeof msg.data?.confidence === 'number' ? msg.data.confidence : 0.5;
+            const confidence = typeof msg.data?.confidence === 'number' ? msg.data.confidence : 0.95;
             const reason = msg.data?.reason || msg.data?.sub_reason || msg.data?.metrics?.reason || null;
-            console.log('[CinematicIntro] Detection decision:', decision, confidence, reason, msg.data);
+            console.log('[CinematicIntro] WebSocket final_decision:', decision, confidence, reason);
             decisionRef.current = decision;
             confidenceRef.current = confidence;
             reasonRef.current = reason;
-            decisionReceivedRef.current = true;
+            finish(decision, confidence, reason);
           }
         } catch (err) {
           console.error('[CinematicIntro] Failed to parse WS message:', err);
@@ -83,17 +102,19 @@ export default function CinematicIntro({ onComplete }) {
         } catch (_) {}
       }
     };
-  }, []);
+  }, [finish]);
 
-  // 2. Manage animation timer
+  // 2. Manage fallback animation timer (finishes after max 4.5s if WS disconnects)
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       finish();
       return;
     }
 
-    // Animation runs ~5 seconds. Finish after 5.5s to let animation conclude
-    timerRef.current = setTimeout(finish, 5500);
+    timerRef.current = setTimeout(() => {
+      console.log('[CinematicIntro] Timer elapsed, finalizing decision');
+      finish();
+    }, 4500);
 
     return () => clearTimeout(timerRef.current);
   }, [finish]);

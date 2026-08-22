@@ -4,6 +4,7 @@ class UIEmphasis(str, enum.Enum):
     standard_touch = "standard_touch"
     big_icons = "big_icons"
     gaze_active = "gaze_active"
+    voice_active = "voice_active"
 
 class SessionStatus(str, enum.Enum):
     active = "active"

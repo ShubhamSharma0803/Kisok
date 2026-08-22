@@ -9,6 +9,7 @@ import { updateDetection } from './api';
 const DECISION_MAP = {
   'Gaze Mode': { route: '/gaze', emphasis: 'gaze_active' },
   'Big Icons Mode': { route: '/large-ui', emphasis: 'big_icons' },
+  'Voice Mode': { route: '/order', emphasis: 'standard_touch' },
   'Simple Touch Mode': { route: '/order', emphasis: 'standard_touch' },
 };
 
@@ -34,14 +35,16 @@ export default function SessionStart({ onNavigate }) {
 
   // 2. Handle intro completion with detected mode decision & confidence gating
   const handleSplashComplete = useCallback(
-    async (decision, confidence = 0.5, reason = null) => {
+    async (decision, confidence = 0.95, reason = null) => {
       setShowOrderSplash(false);
 
       const mapping = DECISION_MAP[decision] || DECISION_MAP['Simple Touch Mode'];
-      const isLowConfidence = confidence < 0.75;
+      const isLowConfidence = confidence < 0.40;
       const finalEmphasis = isLowConfidence ? 'standard_touch' : mapping.emphasis;
       const finalRoute = isLowConfidence ? '/order' : mapping.route;
       const finalSource = isLowConfidence ? 'camera_auto_low_confidence_fallback' : 'camera_auto';
+
+      console.log('[SessionStart] Detected profile:', decision, '-> Route:', finalRoute, 'Emphasis:', finalEmphasis);
 
       if (sessionId) {
         try {
