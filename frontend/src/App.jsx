@@ -10,7 +10,7 @@ import PaymentScreen from './orders/PaymentScreen';
 import ThankYouScreen from './orders/ThankYouScreen';
 import VoiceScreen from './voice/VoiceScreen';
 import LargeUIScreen from './orders/LargeUIScreen';
-import IntroVideo from './components/IntroVideo';
+import CinematicIntro from './components/CinematicIntro';
 import { Eye, ShoppingCart, ArrowLeft } from 'lucide-react';
 
 /**
@@ -73,7 +73,7 @@ export default function App() {
       <SessionProvider>
         <HandoffProvider>
           {showIntro && (
-            <IntroVideo onComplete={() => setShowIntro(false)} />
+            <CinematicIntro onComplete={() => setShowIntro(false)} />
           )}
           <Routes>
             <Route path="/" element={<SessionStart />} />
