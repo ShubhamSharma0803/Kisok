@@ -14,6 +14,8 @@ from core.handoff_router import router as handoff_router
 from voice.router import router as voice_router
 from vision.router import router as narrate_router
 from core.webhooks_router import router as webhooks_router
+from server import detect_stream as _detect_ws_handler
+
 # Ensure DB tables exist on startup
 Base.metadata.create_all(bind=engine)
 
@@ -36,6 +38,9 @@ app.include_router(handoff_router)
 app.include_router(voice_router)
 app.include_router(narrate_router)
 app.include_router(webhooks_router)
+
+# 2. Mount vision detection WebSocket
+app.websocket("/ws/detect")(_detect_ws_handler)
 
 @app.get("/health")
 def health():

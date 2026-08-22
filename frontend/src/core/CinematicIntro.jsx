@@ -1,27 +1,91 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Scan } from 'lucide-react';
 import './CinematicIntro.css';
+
+const WS_URL = 'ws://localhost:8000/ws/detect';
 
 export default function CinematicIntro({ onComplete }) {
   const hasCompleted = useRef(false);
   const timerRef = useRef(null);
+  const wsRef = useRef(null);
+  const decisionRef = useRef(null);
+  const decisionReceivedRef = useRef(false);
+  const [progressPct, setProgressPct] = useState(0);
+  const [scanning, setScanning] = useState(false);
 
   const finish = useCallback(() => {
     if (hasCompleted.current) return;
     hasCompleted.current = true;
     clearTimeout(timerRef.current);
-    onComplete?.();
+    if (wsRef.current) {
+      try {
+        wsRef.current.close();
+      } catch (_) {}
+      wsRef.current = null;
+    }
+    const decision = decisionRef.current || 'Simple Touch Mode';
+    onComplete?.(decision);
   }, [onComplete]);
 
+  // 1. Connect WebSocket detection on mount
   useEffect(() => {
-    // Respect reduced-motion preference
+    let ws;
+    try {
+      ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setScanning(true);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+
+          if (msg.type === 'telemetry') {
+            setProgressPct(msg.progress_pct || 0);
+          }
+
+          if (msg.type === 'final_decision') {
+            const decision = msg.data?.decision || 'Simple Touch Mode';
+            console.log('[CinematicIntro] Detection decision:', decision, msg.data);
+            decisionRef.current = decision;
+            decisionReceivedRef.current = true;
+          }
+        } catch (err) {
+          console.error('[CinematicIntro] Failed to parse WS message:', err);
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.error('[CinematicIntro] WebSocket error:', err);
+      };
+
+      ws.onclose = () => {
+        setScanning(false);
+      };
+    } catch (err) {
+      console.error('[CinematicIntro] Failed to connect WebSocket:', err);
+    }
+
+    return () => {
+      if (ws) {
+        try {
+          ws.close();
+        } catch (_) {}
+      }
+    };
+  }, []);
+
+  // 2. Manage animation timer
+  useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       finish();
       return;
     }
 
-    // Animation is 5 seconds. We wait 6 seconds to naturally finish
-    // then call finish()
-    timerRef.current = setTimeout(finish, 6000);
+    // Animation runs ~5 seconds. Finish after 5.5s to let animation conclude
+    timerRef.current = setTimeout(finish, 5500);
 
     return () => clearTimeout(timerRef.current);
   }, [finish]);
@@ -33,12 +97,17 @@ export default function CinematicIntro({ onComplete }) {
       <div className="cinematic-scene">
         <div className="scene-blob scene-blob-1"></div>
         <div className="scene-blob scene-blob-2"></div>
-        
+
         <div className="items-container items-fade-out">
           <img src="/assets/pizza_flying.png" className="food-item item-1" alt="pizza" />
           <img src="/assets/fries_flying.png" className="food-item item-2" alt="fries" />
           <img src="/assets/donut_flying.png" className="food-item item-3" alt="donut" />
-          <img src="/assets/pizza_flying.png" className="food-item item-4" alt="pizza2" style={{ transform: 'scaleX(-1)' }} />
+          <img
+            src="/assets/pizza_flying.png"
+            className="food-item item-4"
+            alt="pizza2"
+            style={{ transform: 'scaleX(-1)' }}
+          />
           <img src="/assets/sandwich_flying.png" className="food-item item-5" alt="sandwich" />
           <img src="/assets/drink_flying.png" className="food-item item-6" alt="drink" />
         </div>
@@ -52,6 +121,20 @@ export default function CinematicIntro({ onComplete }) {
           <h1>ORDER YOUR FOOD</h1>
           <h2>AI-POWERED ACCESSIBLE ORDERING</h2>
         </div>
+
+        {/* Live scanning indicator */}
+        {scanning && (
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 rounded-full bg-[#1f352d]/90 px-5 py-2.5 backdrop-blur shadow-[0_12px_35px_rgba(33,56,47,.40)]">
+            <Scan className="h-4 w-4 text-[#e9bd67] animate-pulse" />
+            <span className="text-sm font-bold text-white/90">Detecting accessibility needs…</span>
+            <div className="w-20 h-1.5 rounded-full bg-white/20 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[#e9bd67] transition-all duration-300 ease-out"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

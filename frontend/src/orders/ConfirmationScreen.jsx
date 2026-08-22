@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../core/SessionContext';
 import { getOrder, confirmOrder } from '../core/api';
+import { useGazeTracking } from '../gaze/useGazeTracking';
+import { useDwellSelect, DwellOverlay, GazeCursor } from '../gaze/DwellSelect';
 import {
   ArrowLeft,
   ArrowRight,
@@ -9,7 +11,6 @@ import {
   ShoppingBag,
   RefreshCw,
   AlertCircle,
-  CheckCircle2,
 } from 'lucide-react';
 
 const formatPrice = (value) =>
@@ -21,13 +22,16 @@ const formatPrice = (value) =>
 
 export default function ConfirmationScreen() {
   const navigate = useNavigate();
-  const { sessionId } = useSession();
+  const { sessionId, uiEmphasis } = useSession();
 
   const [order, setOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState(null);
+
+  const isGazeMode = uiEmphasis === 'gaze_active';
+  const { gaze } = useGazeTracking({ enabled: isGazeMode });
 
   const fetchCurrentOrder = useCallback(async () => {
     if (!sessionId) {
@@ -51,7 +55,7 @@ export default function ConfirmationScreen() {
     fetchCurrentOrder();
   }, [fetchCurrentOrder]);
 
-  const handleConfirmOrder = async () => {
+  const handleConfirmOrder = useCallback(async () => {
     if (!sessionId || isConfirming) return;
     setIsConfirming(true);
     setConfirmError(null);
@@ -65,14 +69,39 @@ export default function ConfirmationScreen() {
     } finally {
       setIsConfirming(false);
     }
-  };
+  }, [sessionId, isConfirming, navigate]);
+
+  const handleBackToMenu = useCallback(() => {
+    navigate(isGazeMode ? '/gaze' : '/order');
+  }, [navigate, isGazeMode]);
+
+  // Dwell selection for gaze users on confirmation screen
+  const handleDwellSelect = useCallback(
+    (id) => {
+      if (id === 'confirm:order') {
+        handleConfirmOrder();
+      } else if (id === 'confirm:back' || id === 'nav:back') {
+        handleBackToMenu();
+      }
+    },
+    [handleConfirmOrder, handleBackToMenu]
+  );
+
+  const { activeId, progress } = useDwellSelect({
+    gaze,
+    onSelect: handleDwellSelect,
+    enabled: isGazeMode && !isConfirming,
+    dwellTimeMs: 1300,
+  });
 
   const items = order?.items || [];
   const total = order?.total || 0;
   const isPending = order?.status === 'pending';
 
   return (
-    <main className="min-h-screen bg-[#f5f0e8] text-[#211b17] font-sans">
+    <main className="min-h-screen bg-[#f5f0e8] text-[#211b17] font-sans relative">
+      {isGazeMode && <GazeCursor gaze={gaze} />}
+
       {/* Header */}
       <header className="border-b border-[#e7dccd] bg-[#fffaf3] px-6 py-5 md:px-10 shadow-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
@@ -80,20 +109,18 @@ export default function ConfirmationScreen() {
             {isPending && (
               <button
                 type="button"
-                onClick={() => navigate('/order')}
-                className="flex h-12 w-12 items-center justify-center rounded-full border border-[#d8cbb9] bg-white text-[#211b17] shadow-sm transition hover:bg-[#f4eadc] active:scale-95 focus:outline-none focus:ring-4 focus:ring-[#b66b3c]/25"
+                data-dwell-id="nav:back"
+                onClick={handleBackToMenu}
+                className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[#d8cbb9] bg-white text-[#211b17] shadow-sm transition hover:bg-[#f4eadc] active:scale-95 focus:outline-none focus:ring-4 focus:ring-[#b66b3c]/25"
                 aria-label="Back to menu"
               >
+                {activeId === 'nav:back' && <DwellOverlay progress={progress} className="rounded-full" />}
                 <ArrowLeft className="h-5 w-5" />
               </button>
             )}
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#a66b3f]">
-                THE KIOSK KITCHEN
-              </p>
-              <h1 className="font-display text-3xl md:text-4xl font-bold text-[#211b17]">
-                Review Your Order
-              </h1>
+              <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#a66b3f]">THE KIOSK KITCHEN</p>
+              <h1 className="font-display text-3xl md:text-4xl font-bold text-[#211b17]">Review Your Order</h1>
             </div>
           </div>
 
@@ -142,9 +169,11 @@ export default function ConfirmationScreen() {
             </p>
             <button
               type="button"
-              onClick={() => navigate('/order')}
-              className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#1f352d] px-8 py-4 text-base font-bold text-white shadow-lg transition hover:bg-[#29483d] focus:outline-none focus:ring-4 focus:ring-[#1f352d]/25"
+              data-dwell-id="confirm:back"
+              onClick={handleBackToMenu}
+              className="relative mt-6 inline-flex items-center gap-2 rounded-full bg-[#1f352d] px-8 py-4 text-base font-bold text-white shadow-lg transition hover:bg-[#29483d] focus:outline-none focus:ring-4 focus:ring-[#1f352d]/25"
             >
+              {activeId === 'confirm:back' && <DwellOverlay progress={progress} className="rounded-full" />}
               <ArrowLeft className="h-5 w-5" />
               <span>Back to Menu</span>
             </button>
@@ -157,12 +186,8 @@ export default function ConfirmationScreen() {
             <div className="rounded-[2rem] border border-[#e5d9c8] bg-[#fffaf3] p-6 md:p-8 shadow-[0_15px_40px_rgba(80,60,40,.06)]">
               <div className="flex items-center justify-between border-b border-[#e7dccd] pb-5">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#a66b3f]">
-                    Items Selected
-                  </p>
-                  <h2 className="mt-1 font-display text-2xl md:text-3xl font-bold text-[#211b17]">
-                    Order Details
-                  </h2>
+                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#a66b3f]">Items Selected</p>
+                  <h2 className="mt-1 font-display text-2xl md:text-3xl font-bold text-[#211b17]">Order Details</h2>
                 </div>
                 <span className="rounded-full bg-[#eadfce] px-3.5 py-1.5 text-xs font-bold text-[#7b4a2f]">
                   {items.length} {items.length === 1 ? 'item' : 'items'}
@@ -180,12 +205,11 @@ export default function ConfirmationScreen() {
                         {item.item_name}
                       </h3>
                       {item.modifiers && (
-                        <p className="mt-1 text-xs font-bold capitalize text-[#96735a]">
-                          + {item.modifiers}
-                        </p>
+                        <p className="mt-1 text-xs font-bold capitalize text-[#96735a]">+ {item.modifiers}</p>
                       )}
                       <p className="mt-2 text-xs font-semibold text-[#8c7d70]">
-                        Qty: <span className="font-bold text-[#2a201a]">{item.quantity}</span> × {formatPrice(item.unit_price)}
+                        Qty: <span className="font-bold text-[#2a201a]">{item.quantity}</span> ×{' '}
+                        {formatPrice(item.unit_price)}
                       </p>
                     </div>
                     <span className="font-display text-xl font-semibold text-[#8b4f2d]">
@@ -204,9 +228,7 @@ export default function ConfirmationScreen() {
                     <ReceiptText className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#e9bd67]">
-                      Total Summary
-                    </p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#e9bd67]">Total Summary</p>
                     <h2 className="font-display text-2xl md:text-3xl font-semibold">Payment Due</h2>
                   </div>
                 </div>
@@ -238,14 +260,17 @@ export default function ConfirmationScreen() {
                   </div>
                 )}
 
-                {/* Action Buttons */}
+                {/* Action Buttons with Dwell Support */}
                 <div className="mt-7 space-y-3">
                   <button
                     type="button"
+                    data-dwell-id="confirm:order"
                     onClick={handleConfirmOrder}
                     disabled={isConfirming || items.length === 0}
-                    className="flex min-h-touch w-full items-center justify-center gap-3 rounded-full bg-[#b95f35] px-6 text-base font-bold text-white shadow-[0_12px_24px_rgba(185,95,53,.25)] transition hover:bg-[#9f4f29] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[#7d695b] focus:outline-none focus:ring-4 focus:ring-[#b95f35]/25"
+                    className="relative flex min-h-touch w-full items-center justify-center gap-3 rounded-full bg-[#b95f35] px-6 text-base font-bold text-white shadow-[0_12px_24px_rgba(185,95,53,.25)] transition hover:bg-[#9f4f29] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[#7d695b] focus:outline-none focus:ring-4 focus:ring-[#b95f35]/25"
+                    aria-label="Confirm order and proceed to payment"
                   >
+                    {activeId === 'confirm:order' && <DwellOverlay progress={progress} className="rounded-full" />}
                     {isConfirming ? (
                       <>
                         <RefreshCw className="h-5 w-5 animate-spin" />
@@ -262,10 +287,12 @@ export default function ConfirmationScreen() {
                   {isPending && (
                     <button
                       type="button"
-                      onClick={() => navigate('/order')}
+                      data-dwell-id="confirm:back"
+                      onClick={handleBackToMenu}
                       disabled={isConfirming}
-                      className="flex min-h-touch w-full items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-6 text-sm font-bold text-white transition hover:bg-white/20 active:scale-[0.98] disabled:opacity-50 focus:outline-none focus:ring-4 focus:ring-white/20"
+                      className="relative flex min-h-touch w-full items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-6 text-sm font-bold text-white transition hover:bg-white/20 active:scale-[0.98] disabled:opacity-50 focus:outline-none focus:ring-4 focus:ring-white/20"
                     >
+                      {activeId === 'confirm:back' && <DwellOverlay progress={progress} className="rounded-full" />}
                       <ArrowLeft className="h-4 w-4" />
                       <span>Back to Menu</span>
                     </button>

@@ -1,7 +1,12 @@
+import os
+from pathlib import Path
 from pydantic_settings import BaseSettings
 
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+_DEFAULT_DB_PATH = _BACKEND_DIR / "kiosk.db"
+
 class Settings(BaseSettings):
-    database_url: str = "sqlite:///./kiosk.db"
+    database_url: str = f"sqlite:///{_DEFAULT_DB_PATH}"
     environment: str = "development"
     groq_api_key: str = ""
     gladia_api_key: str = ""

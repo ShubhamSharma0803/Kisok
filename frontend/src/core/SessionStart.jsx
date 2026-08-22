@@ -4,6 +4,12 @@ import { useSession } from './SessionContext';
 import { RefreshCw, AlertCircle } from 'lucide-react';
 import CinematicIntro from './CinematicIntro';
 
+const DECISION_MAP = {
+  'Gaze Mode': { route: '/gaze', emphasis: 'gaze_active' },
+  'Big Icons Mode': { route: '/large-ui', emphasis: 'big_icons' },
+  'Simple Touch Mode': { route: '/order', emphasis: 'standard_touch' },
+};
+
 export default function SessionStart({ onNavigate }) {
   const navigate = useNavigate();
   const {
@@ -12,6 +18,7 @@ export default function SessionStart({ onNavigate }) {
     isLoadingSession,
     sessionError,
     initSession,
+    setUiEmphasis,
   } = useSession();
 
   const [showOrderSplash, setShowOrderSplash] = useState(true);
@@ -23,14 +30,22 @@ export default function SessionStart({ onNavigate }) {
     }
   }, [sessionId, isLoadingSession, sessionError, initSession]);
 
-  // 2. Automatically proceed to /order after welcome animation ends (no manual mode picker)
-  const handleSplashComplete = useCallback(() => {
-    setShowOrderSplash(false);
-    if (onNavigate) {
-      onNavigate(uiEmphasis || 'standard_touch');
-    }
-    navigate('/order');
-  }, [navigate, onNavigate, uiEmphasis]);
+  // 2. Handle intro completion with detected mode decision
+  const handleSplashComplete = useCallback(
+    (decision) => {
+      setShowOrderSplash(false);
+
+      const mapping = DECISION_MAP[decision] || DECISION_MAP['Simple Touch Mode'];
+      setUiEmphasis(mapping.emphasis);
+
+      if (onNavigate) {
+        onNavigate(mapping.emphasis);
+      }
+
+      navigate(mapping.route);
+    },
+    [navigate, onNavigate, setUiEmphasis]
+  );
 
   return (
     <main
